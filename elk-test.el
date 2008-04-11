@@ -1,49 +1,59 @@
 ;;; elk-test.el --- Emacs Lisp testing suite
-
-;; Copyright (C) 2006 Nikolaj Schumacher <bugs * nschum , de>
-
-;;; License
-
+;;
+;; Copyright (C) 2006 Nikolaj Schumacher
+;;
+;; Author: Nikolaj Schumacher <bugs * nschum de>
+;; Version: 0.1
+;; Keywords: lisp
+;; URL: http://nschum.de/src/emacs/guess-style/
+;; Compatibility: GNU Emacs 22.x
+;;
+;; This file is NOT part of GNU Emacs.
+;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License
 ;; as published by the Free Software Foundation; either version 2
 ;; of the License, or (at your option) any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
-
+;;
 ;; You should have received a copy of the GNU General Public License
-;; along with this program; if not, write to the Free Software
-;; Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
-;;; Usage
-
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;;
+;;; Commentary:
+;;
 ;; Use `deftest' to define a test and `run-elk-test' to run it.
 ;; Create test bundles with `defsuite' or `build-suite'.
 ;; Verify your code with  `assert-equal', `assert-eq', `assert-eql',
 ;; `assert-nonnil', `assert-t', `assert-nil' and `assert-error'
 ;; to verify your code.
-
-;;; Examples
-
+;;
 ;; (deftest "test1"
 ;;   (assert-equal t t)
 ;;   (assert-eq t 'foo))
-
+;;
 ;; (defsuite "suite1"
 ;;   (deftest "test1" (assert-equal t t)))
-
+;;
 ;; (deftest "test2"
 ;;   (assert-equal t t))
 ;; (build-suite "combined-suite" "test1" "test2")
-
+;;
 ;; (run-elk-test "combined-suite")
 ;; (run-elk-test)
-
-;;; TODO
-;; (declare (indent 1)) -> when
+;;
+;;; Change Log:
+;;
+;; ????-??-?? (0.2)
+;;
+;;
+;; 2006-11-04 (0.1)
+;;    Initial release.
+;;
+;;; Code:
 
 (require 'cl)
 
@@ -243,3 +253,4 @@ The resulting suite can be run by calling `run-elk-test' with parameter NAME."
     name))
 
 (provide 'elk-test)
+;;; elk-test.el ends here
