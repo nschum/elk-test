@@ -49,6 +49,7 @@
 ;;
 ;; ????-??-?? (0.2)
 ;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
+;;    Replaced `elk-test-error' with regular `error'.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -78,7 +79,7 @@ case a message describing the errors or success is displayed and returned."
   (interactive
    (list (completing-read "Test name: " elk-test-list nil t)))
   (let ((name name))
-  (let ((elk-test-errors nil)
+  (let ((error-list nil)
         (test-or-suite (gethash name elk-test-map)))
     (if (not test-or-suite)
         (error "Undefined test <%s>" name)
@@ -86,16 +87,16 @@ case a message describing the errors or success is displayed and returned."
           ;; is test suite
           (let ((map (cadr test-or-suite)))
             (dolist (test (caddr test-or-suite))
-              (setq elk-test-errors
-                    (append elk-test-errors
+              (setq error-list
+                    (append error-list
                             (elk-test-run-internal (gethash test map))))))
         ;; is simple test
-        (setq elk-test-errors (elk-test-run-internal test-or-suite)))
+        (setq error-list (elk-test-run-internal test-or-suite)))
       (if (or string-result (interactive-p))
-          (message (if elk-test-errors
-                       (mapconcat 'identity elk-test-errors "\n")
+          (message (if error-list
+                       (mapconcat 'identity error-list "\n")
                      "Test run was successful."))
-        elk-test-errors)))))
+        error-list)))))
 
 (defun elk-test-run-buffer (&optional buffer)
   "Execute BUFFER as lisp code and run all tests therein."
@@ -129,59 +130,47 @@ case a message describing the errors or success is displayed and returned."
           (message "Test run was successful."))))))
 
 (defun elk-test-run-internal (test)
-  (let ((elk-test-errors nil))
-    (dolist (sexpr test)
-      (let ((problem (condition-case err (progn (eval sexpr) nil) (error err))))
-        (when problem
-          (push (message "%s" problem) elk-test-errors))))
-    elk-test-errors))
-
-(defmacro elk-test-error (format-string &rest args)
-  "Create an error string as the result of a failed elk-test assertion.
-The first argument is a format control string, and the rest are data to be
-formatted under control of the string.  See `format' for details.
-
-The result will be displayed, returned and if called inside of `elk-test-run'
-added to the internal error list."
-  `(let ((string (message ,format-string ,@args)))
-     (when (boundp 'elk-test-errors)
-       (push string elk-test-errors))
-     string))
+  (let (error-list)
+    (dolist (sexp test)
+      (condition-case err
+          (eval sexp)
+        (error (push (error-message-string err) error-list))))
+    error-list))
 
 (defmacro assert-equal (expected actual)
   "Assert that ACTUAL equals EXPECTED, or signal a warning."
   `(unless (equal ,expected ,actual)
-    (elk-test-error "assert-equal for <%s> failed: expected <%s>, was <%s>"
+    (error "assert-equal for <%s> failed: expected <%s>, was <%s>"
                     ',actual ,expected ,actual)))
 
 (defmacro assert-eq (expected actual)
   "Assert that ACTUAL equals EXPECTED, or signal a warning."
   `(unless (eq ,expected ,actual)
-    (elk-test-error "assert-eq for <%s> failed: expected <%s>, was <%s>"
+    (error "assert-eq for <%s> failed: expected <%s>, was <%s>"
                     ',actual ,expected ,actual)))
 
 (defmacro assert-eql (expected actual)
   "Assert that ACTUAL equals EXPECTED, or signal a warning."
   `(unless (eql ,expected ,actual)
-    (elk-test-error "assert-eql for <%s> failed: expected <%s>, was <%s>"
+    (error "assert-eql for <%s> failed: expected <%s>, was <%s>"
                     ',actual ,expected ,actual)))
 
 (defmacro assert-nonnil (value)
   "Assert that VALUE is not nil, or signal a warning."
   `(unless ,value
-     (elk-test-error "assert-nonnil for <%s> failed: was <%s>"
+     (error "assert-nonnil for <%s> failed: was <%s>"
                      ',value ,value)))
 
 (defmacro assert-t (value)
   "Assert that VALUE is t, or signal a warning."
   `(unless (eq ,value t)
-     (elk-test-error "assert-t for <%s> failed: was <%s>"
+     (error "assert-t for <%s> failed: was <%s>"
                      ',value ,value)))
 
 (defmacro assert-nil (value)
   "Assert that VALUE is nil, or signal a warning."
   `(when ,value
-     (elk-test-error "assert-nil for <%s> failed: was <%s>"
+     (error "assert-nil for <%s> failed: was <%s>"
                      ',value ,value)))
 
 (defmacro assert-error (error-message &rest body)
@@ -189,20 +178,16 @@ added to the internal error list."
 ERROR-MESSAGE is the expected error string, use nil to accept any error.  Use
 nil with caution, as errors like 'wrong-number-of-arguments' (likely caused by
 typos) will also be caught!"
-  `(let ((elk-test-error
-          (condition-case elk-test-error
-              (progn ,@body)
-            (error (cons 'elk-test-error (cadr elk-test-error))))))
-     (if (not (eq (car elk-test-error) 'elk-test-error))
-         ;; no error
-         (elk-test-error "assert-error for <%s> failed: did not raise an error"
-                         (append '(progn) ',body))
-       (when (and ,error-message
-                  (not (equal ,error-message (cdr elk-test-error))))
-         (elk-test-error (concat "assert-error for <%s> failed: expected <%s>, "
-                                 "raised <%s>")
-                         (append '(progn) ',body)
-                         ,error-message (cdr elk-test-error))))))
+  `(condition-case err
+       (progn ,@body
+              ;; should not be reached, if body throws an error
+              (error "assert-error for <%s> failed: did not raise an error"
+                     '(progn . ,body)))
+     (error
+      (let ((actual (error-message-string err)))
+        (unless (equal ,error-message actual)
+          (error "assert-error for <%s> failed: expected <%s>, raised <%s>"
+                 '(progn . ,body) ,error-message actual))))))
 
 (defmacro deftest (name &rest body)
   "Define a test case.
