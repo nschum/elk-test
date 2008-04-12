@@ -1,6 +1,6 @@
 ;;; elk-test.el --- Emacs Lisp testing suite
 ;;
-;; Copyright (C) 2006 Nikolaj Schumacher
+;; Copyright (C) 2006,2008 Nikolaj Schumacher
 ;;
 ;; Author: Nikolaj Schumacher <bugs * nschum de>
 ;; Version: 0.1
@@ -25,7 +25,7 @@
 ;;
 ;;; Commentary:
 ;;
-;; Use `deftest' to define a test and `run-elk-test' to run it.
+;; Use `deftest' to define a test and `elk-test-run' to run it.
 ;; Create test bundles with `defsuite' or `build-suite'.
 ;; Verify your code with  `assert-equal', `assert-eq', `assert-eql',
 ;; `assert-nonnil', `assert-t', `assert-nil' and `assert-error'
@@ -42,13 +42,13 @@
 ;;   (assert-equal t t))
 ;; (build-suite "combined-suite" "test1" "test2")
 ;;
-;; (run-elk-test "combined-suite")
-;; (run-elk-test)
+;; (elk-test-run "combined-suite")
+;; (elk-test-run)
 ;;
 ;;; Change Log:
 ;;
 ;; ????-??-?? (0.2)
-;;
+;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -71,7 +71,7 @@
   (setq elk-test-map (make-hash-table :test 'equal)
         elk-test-list nil))
 
-(defun run-elk-test (name &optional string-result)
+(defun elk-test-run (name &optional string-result)
   "Run the test case defined as NAME.
 The result is a list of errors strings, unless STRING-RESULT is set, in which
 case a message describing the errors or success is displayed and returned."
@@ -88,16 +88,16 @@ case a message describing the errors or success is displayed and returned."
             (dolist (test (caddr test-or-suite))
               (setq elk-test-errors
                     (append elk-test-errors
-                            (run-elk-test-internal (gethash test map))))))
+                            (elk-test-run-internal (gethash test map))))))
         ;; is simple test
-        (setq elk-test-errors (run-elk-test-internal test-or-suite)))
+        (setq elk-test-errors (elk-test-run-internal test-or-suite)))
       (if (or string-result (interactive-p))
           (message (if elk-test-errors
                        (mapconcat 'identity elk-test-errors "\n")
                      "Test run was successful."))
         elk-test-errors)))))
 
-(defun run-elk-tests-buffer (&optional buffer)
+(defun elk-test-run-buffer (&optional buffer)
   "Execute BUFFER as lisp code and run all tests therein."
   (interactive)
   (let* ((elk-test-list)
@@ -117,7 +117,7 @@ case a message describing the errors or success is displayed and returned."
           (erase-buffer)
           (dolist (test elk-test-list)
             (message "running <%s>" test)
-            (let ((results (run-elk-test test)))
+            (let ((results (elk-test-run test)))
               (when results
                 (setq failure t)
                 (insert "test <" test "> failed:\n")
@@ -128,7 +128,7 @@ case a message describing the errors or success is displayed and returned."
           (kill-buffer out-buffer)
           (message "Test run was successful."))))))
 
-(defun run-elk-test-internal (test)
+(defun elk-test-run-internal (test)
   (let ((elk-test-errors nil))
     (dolist (sexpr test)
       (let ((problem (condition-case err (progn (eval sexpr) nil) (error err))))
@@ -141,7 +141,7 @@ case a message describing the errors or success is displayed and returned."
 The first argument is a format control string, and the rest are data to be
 formatted under control of the string.  See `format' for details.
 
-The result will be displayed, returned and if called inside of `run-elk-test'
+The result will be displayed, returned and if called inside of `elk-test-run'
 added to the internal error list."
   `(let ((string (message ,format-string ,@args)))
      (when (boundp 'elk-test-errors)
@@ -212,12 +212,12 @@ Use `assert-equal', `assert-eq', `assert-eql', `assert-nonnil', `assert-t',
             (push ,name elk-test-list))
           (puthash ,name ',body elk-test-map)
           ,(if elk-test-run-on-define
-               `(run-elk-test ',name ,t)
+               `(elk-test-run ',name ,t)
              name)))
 
 (defmacro defsuite (name &rest body)
   "Define a test suite using a collection of `deftest' forms.
-The resulting suite can be called with `run-elk-test' and parameter NAME."
+The resulting suite can be called with `elk-test-run' and parameter NAME."
   `(let ((suite
           (let ((elk-test-map (make-hash-table :test 'equal))
                 (elk-test-list nil))
@@ -227,12 +227,12 @@ The resulting suite can be called with `run-elk-test' and parameter NAME."
        (push ,name elk-test-list))
      (puthash ,name suite elk-test-map)
      ,(if elk-test-run-on-define
-          `(run-elk-test ,name t)
+          `(elk-test-run ,name t)
         name)))
 
 (defun build-suite (name &rest tests)
   "Define a test suite using a collection of test names.
-The resulting suite can be run by calling `run-elk-test' with parameter NAME."
+The resulting suite can be run by calling `elk-test-run' with parameter NAME."
   (unless (gethash name elk-test-map)
     (push name elk-test-list))
   (puthash name
@@ -249,7 +249,7 @@ The resulting suite can be run by calling `run-elk-test' with parameter NAME."
              (list 'suite map (reverse list)))
            elk-test-map)
   (if elk-test-run-on-define
-      (run-elk-test "sample suite" t)
+      (elk-test-run "sample suite" t)
     name))
 
 (provide 'elk-test)
