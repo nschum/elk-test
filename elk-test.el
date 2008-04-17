@@ -1,4 +1,4 @@
-;;; elk-test.el --- Emacs Lisp testing suite
+;;; elk-test.el --- Emacs Lisp testing framework
 ;;
 ;; Copyright (C) 2006,2008 Nikolaj Schumacher
 ;;
@@ -45,11 +45,16 @@
 ;; (elk-test-run "combined-suite")
 ;; (elk-test-run)
 ;;
+;; To enable font-locking, add the following to your .emacs:
+;;
+;; (add-hook 'emacs-lisp-mode-hook 'elk-test-enable-font-lock)
+;;
 ;;; Change Log:
 ;;
 ;; ????-??-?? (0.2)
 ;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
 ;;    Replaced `elk-test-error' with regular `error'.
+;;    Added font-lock support.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -57,6 +62,20 @@
 ;;; Code:
 
 (require 'cl)
+
+(defgroup elk-test nil
+  "Emacs Lisp testing framework"
+  :group 'lisp)
+
+(defface elk-test-deftest-face
+  '((default (:inherit font-lock-keyword-face)))
+  "*Face used for `deftest' and `defsuite' keywords."
+  :group 'elk-test)
+
+(defface elk-test-assertion-face
+  '((default (:inherit font-lock-warning-face)))
+  "*Face used for assertions in elk tests."
+  :group 'elk-test)
 
 (defvar elk-test-run-on-define nil
   "If non-nil, run elk-test tests/suites immediately when defining them.")
@@ -236,6 +255,19 @@ The resulting suite can be run by calling `elk-test-run' with parameter NAME."
   (if elk-test-run-on-define
       (elk-test-run "sample suite" t)
     name))
+
+(defconst elk-test-font-lock-keywords
+  `(("(\\_<\\(deftest\\|defsuite\\)\\_>" 1 'font-lock-keyword-face)
+    (,(concat "(\\_<" (regexp-opt '("assert-equal" "assert-eq" "assert-eql"
+                                    "assert-nonnil" "assert-t" "assert-nil"
+                                    "assert-error") t)
+              "\\_>") 1 'elk-test-assertion-face)))
+
+(defun elk-test-enable-font-lock (&optional fontify)
+  (interactive "p")
+  (font-lock-add-keywords nil elk-test-font-lock-keywords)
+  (when fontify
+    (font-lock-fontify-buffer)))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
