@@ -112,24 +112,24 @@
   (let ((elk-test-run-on-define nil))
     (defsuite "suite1"
       (deftest "test" (assert-equal t t)))
-    (assert-nil (run-elk-test "suite1"))
+    (assert-nil (elk-test-run "suite1"))
 
     (defsuite "suite1"
       (deftest "test" (assert-equal t nil)))
-    (assert-nonnil (run-elk-test "suite1"))
+    (assert-nonnil (elk-test-run "suite1"))
 
     (deftest "test" (assert-equal t nil))
-    (assert-nonnil (run-elk-test "test"))
+    (assert-nonnil (elk-test-run "test"))
 
     (deftest "test" (assert-equal t t))
-    (assert-nil (run-elk-test "test"))
+    (assert-nil (elk-test-run "test"))
 
     (deftest "test2" (assert-equal t t))
     (build-suite "suite1" "test" "test2")
-    (assert-nil (run-elk-test "suite1"))
+    (assert-nil (elk-test-run "suite1"))
 
     (deftest "test2" (assert-equal t nil))
     (build-suite "suite2" "test" "test2")
-    (assert-nonnil (run-elk-test "suite2"))
-    (assert-nil (run-elk-test "suite1"))
+    (assert-nonnil (elk-test-run "suite2"))
+    (assert-nil (elk-test-run "suite1"))
     ))
