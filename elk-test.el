@@ -59,6 +59,7 @@
 ;;    Removed defsuite functionality (Use .elk files instead).
 ;;    `elk-test-run-buffer' no longer evaluates the entire buffer.
 ;;    Test results are now clickable links.
+;;    Added mode menu.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -149,6 +150,14 @@ case a message describing the errors or success is displayed and returned."
       (setq buffer-read-only t)
       (current-buffer))))
 
+(defun elk-test-show-error-buffer ()
+  "Pop up the buffer with errors created by `elk-test-run-buffer'."
+  (interactive)
+  (let ((buffer (get-buffer "*elk-test*")))
+    (if buffer
+        (switch-to-buffer buffer)
+      (message "No error buffer found"))))
+
 (defun elk-test-run-buffer (&optional buffer show-results)
   "Run tests defined with `deftest' in BUFFER.
 Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
@@ -187,6 +196,7 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
                  (if errors (length errors) "No"))
         (when errors
           (elk-test-print-errors buffer errors)))
+      (elk-test-update-menu `((,(current-buffer) . ,errors)))
       errors)))
 
 (defun elk-test-print-errors (original-buffer errors &optional error-buffer)
@@ -213,17 +223,19 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
           (insert "* " result "\n\n")))
       (setq buffer-read-only t))))
 
+(defun elk-test-jump (buffer pos)
+  (push-mark)
+  (switch-to-buffer buffer)
+  (goto-char pos)
+  (ignore-errors
+    (forward-sexp)
+    (backward-sexp)))
+
 (defun elk-test-follow-link (pos)
   "Follow the link at POS in an error buffer."
   (interactive "d")
-  (let ((pos (get-text-property pos 'elk-test-point))
-        (buffer (get-text-property pos 'elk-test-buffer)))
-    (push-mark)
-    (switch-to-buffer buffer)
-    (goto-char pos)
-    (ignore-errors
-      (forward-sexp)
-      (backward-sexp))))
+  (elk-test-jump (get-text-property pos 'elk-test-buffer)
+                 (get-text-property pos 'elk-test-point)))
 
 (defun elk-test-click (event)
   "Follow the link selected in an error buffer."
@@ -371,6 +383,43 @@ If the state is set to 'success, a hook will be installed to switch to
   "Minor mode used for elk tests."
   (elk-test-enable-font-lock))
 
+(defsubst elk-test-shorten-string (str)
+  "Shorten STR to 40 characters."
+  (if (>= (length str) 40)
+      (concat (substring str 0 37) "...")
+    str))
+
+(defun elk-test-update-menu (errors)
+  "Update the mode menu for `elk-test-mode'."
+  (easy-menu-define elk-test-menu elk-test-mode-map
+    "elk-test commands"
+    `("elk-test"
+      ["Run buffer tests" elk-test-run-buffer]
+      ["Run all buffer tests" elk-test-run-all-buffers]
+      "-"
+      ["Show error buffer" elk-test-show-error-buffer
+       :visible (get-buffer "*elk-test*")]
+
+      ,@(mapcar (lambda (buf)
+                  (vector (buffer-name buf)
+                          `(lambda ()
+                             (interactive)
+                             (switch-to-buffer ,buf))))
+                (elk-test-buffer-list))
+      "-" .
+      ,(mapcan (lambda (buffer-errors)
+                 (mapcar (lambda (err)
+                           (vector
+                            (concat (car (cddr err)) " - "
+                                    (elk-test-shorten-string (car (cadr err))))
+                            `(lambda ()
+                               (interactive)
+                               (elk-test-jump ,(car buffer-errors)
+                                              ,(car err)))))
+                         (cdr buffer-errors)))
+               errors)))
+  (easy-menu-add elk-test-menu))
+
 (defun elk-test-buffer-list ()
   "List all buffers in `elk-test-mode'."
   (mapcan (lambda (b) (when (with-current-buffer b
@@ -395,7 +444,9 @@ If the state is set to 'success, a hook will be installed to switch to
       (when errors
         (let ((error-buffer (elk-test-prepare-error-buffer)))
           (dolist (err all-errors)
-            (elk-test-print-errors (car err) (cdr err) error-buffer)))))))
+            (elk-test-print-errors (car err) (cdr err) error-buffer)))))
+    (elk-test-update-menu all-errors)
+    errors))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
