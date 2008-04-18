@@ -391,7 +391,7 @@ If the state is set to 'success, a hook will be installed to switch to
       (push (cons buffer errors) all-errors))
     (when show-results
       (message "%i test buffers run (%s errors)" num-buffers
-               (if errors (num-errors) "No"))
+               (if errors num-errors "No"))
       (when errors
         (let ((error-buffer (elk-test-prepare-error-buffer)))
           (dolist (err all-errors)
