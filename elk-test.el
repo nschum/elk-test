@@ -56,6 +56,7 @@
 ;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
 ;;    Replaced `elk-test-error' with regular `error'.
 ;;    Added major made.
+;;    `assert-error' now takes a regular expression as argument.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -215,21 +216,29 @@ case a message describing the errors or success is displayed and returned."
      (error "assert-nil for <%s> failed: was <%s>"
                      ',value ,value)))
 
-(defmacro assert-error (error-message &rest body)
+(defmacro assert-error (error-message-regexp &rest body)
   "Assert that BODY raises an `error', or signal a warning.
-ERROR-MESSAGE is the expected error string, use nil to accept any error.  Use
-nil with caution, as errors like 'wrong-number-of-arguments' (likely caused by
-typos) will also be caught!"
-  `(condition-case err
-       (progn ,@body
-              ;; should not be reached, if body throws an error
-              (error "assert-error for <%s> failed: did not raise an error"
-                     '(progn . ,body)))
-     (error
-      (let ((actual (error-message-string err)))
-        (unless (equal ,error-message actual)
-          (error "assert-error for <%s> failed: expected <%s>, raised <%s>"
-                 '(progn . ,body) ,error-message actual))))))
+ERROR-MESSAGE-REGEXP is a regular expression describing the expected error
+message.  nil accepts any error.  Use nil with caution, as errors like
+'wrong-number-of-arguments' (likely caused by typos) will also be caught!"
+  `(let (actual-error)
+     (condition-case err
+         (progn
+           ,@body
+           ;; should not be reached, if body throws an error
+           (setq actual-error
+                 (format "assert-error for <%s> failed: did not raise an error"
+                         '(progn ,@body)))
+           ;; jump out
+           (error ""))
+       (error
+        (if actual-error
+            (error actual-error)
+          (when ,error-message-regexp
+            (setq actual-error (error-message-string err))
+            (unless (string-match ,error-message-regexp actual-error)
+              (error "assert-error for <%s> failed: expected <%s>, raised <%s>"
+                     '(progn . ,body) ,error-message-regexp actual-error))))))))
 
 (defmacro deftest (name &rest body)
   "Define a test case.

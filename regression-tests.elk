@@ -105,8 +105,15 @@
   (assert-nil (elk-test-run-internal '((assert-error "x" t (error "x")))))
   (assert-nonnil (elk-test-run-internal '((assert-error "y" (error "x")))))
   (assert-nonnil (elk-test-run-internal '((assert-error "y" t (error "x")))))
-  (assert-nonnil (elk-test-run-internal '((assert-error "y" nil))))
-  (assert-nonnil (elk-test-run-internal '((assert-error "y" t nil)))))
+  (assert-nil (elk-test-run-internal '((assert-error nil (error "x")))))
+  (assert-nil (elk-test-run-internal '((assert-error "x\\|y" (error "x")))))
+  (assert-nil (elk-test-run-internal '((assert-error "x\\|y" (error "y")))))
+  (assert-nonnil (elk-test-run-internal '((assert-error "x\\|y" (error "z")))))
+  (assert-nonnil (elk-test-run-internal '((assert-error "y" nil nil))))
+  (assert-nonnil (elk-test-run-internal '((assert-error "y" t nil))))
+  (assert-nonnil (elk-test-run-internal '((assert-error nil t nil))))
+  (assert-nonnil (elk-test-run-internal '((assert-error "x\\|y" nil))))
+  )
 
 (deftest "run"
   (let ((elk-test-run-on-define nil))
