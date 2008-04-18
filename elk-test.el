@@ -25,8 +25,15 @@
 ;;
 ;;; Commentary:
 ;;
-;; Use `deftest' to define a test and `elk-test-run' to run it.
-;; Create test bundles with `elk-test-group'.
+;; Use `deftest' to define a test and `elk-test-group' to define test groups.
+;; `elk-test-run' can run tests by name, and `elk-test-run-buffer' runs them by
+;; buffer.
+;;
+;; Tests can be defined anywhere, but dedicated (.elk) test files are
+;; encouraged.  A major mode for these can be enabled like this:
+;;
+;; (add-to-list 'auto-mode-alist '("\\.elk\\'" . elk-test-mode))
+;;
 ;; Verify your code with  `assert-equal', `assert-eq', `assert-eql',
 ;; `assert-nonnil', `assert-t', `assert-nil' and `assert-error'
 ;; to verify your code.
@@ -42,11 +49,6 @@
 ;; (elk-test-run "test-group")
 ;; (elk-test-run)
 ;;
-;; Tests can be defined anywhere, but dedicated (.elk) test files are
-;; encouraged.  A major mode for these can be enabled like this:
-;;
-;; (add-to-list 'auto-mode-alist '("\\.elk\\'" . elk-test-mode))
-;;
 ;;; Change Log:
 ;;
 ;; ????-??-?? (0.2)
@@ -55,6 +57,8 @@
 ;;    Added major made.
 ;;    `assert-error' now takes a regular expression as argument.
 ;;    Removed defsuite functionality (Use .elk files instead).
+;;    `elk-test-run-buffer' no longer evaluates the entire buffer.
+;;    Test results are now clickable links.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -137,38 +141,95 @@ case a message describing the errors or success is displayed and returned."
                      "Test run was successful."))
         error-list)))))
 
-(defun elk-test-run-buffer (&optional buffer)
-  "Execute BUFFER as lisp code and run all tests therein."
-  (interactive)
-  (let* ((elk-test-list)
-         (elk-test-map (make-hash-table :test 'equal))
-         (elk-test-run-on-define nil)
-         (inhibit-read-only t)
-         (buffer-name (buffer-name buffer))
-         (success t)
-         (parse-res (condition-case err (eval-buffer buffer) (error err))))
-    (if parse-res
-        (message "Parsing buffer <%s> failed:\n%s"
-                 buffer-name parse-res)
-      (let ((out-buffer (get-buffer-create
-                         (concat "*elk-test run " buffer-name "*")))
-            failure)
-        (with-current-buffer out-buffer
-          (erase-buffer)
-          (dolist (test elk-test-list)
-            (message "running <%s>" test)
-            (let ((results (elk-test-run test)))
-              (when results
-                (setq failure t)
-                (insert "test <" test "> failed:\n")
-                (dolist (result results)
-                  (insert "* " result "\n"))))))
-        (when (eq major-mode 'elk-test-mode)
-          (elk-test-set-buffer-state (if failure 'failure 'success)))
-        (if failure
-            (display-buffer out-buffer)
-          (kill-buffer out-buffer)
-          (message "Test run was successful."))))))
+(defun elk-test-prepare-error-buffer ()
+  "Create and prepare a buffer for displaying errors."
+  (with-current-buffer (get-buffer-create "*elk-test*")
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (setq buffer-read-only t)
+      (current-buffer))))
+
+(defun elk-test-run-buffer (&optional buffer show-results)
+  "Run tests defined with `deftest' in BUFFER.
+Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
+  (interactive (list nil t))
+  (save-excursion
+    (when buffer
+      (set-buffer buffer))
+    (goto-char (point-min))
+    (let ((inhibit-read-only t)
+          (num 0)
+          sexp err errors)
+      (condition-case err
+          (while (not (looking-at "[ \f\t\n\r\v]*\\'"))
+            (push (cons (point) (read (current-buffer))) sexp))
+        (error
+         ;; parse error
+         (setq errors (list 0
+                            (format "Parsing buffer <%s> failed:\n%s"
+                                    (buffer-name) (error-message-string err))))
+         (setq sexp nil)))
+      (dolist (p sexp)
+        (let ((form (cdr p))
+              (line (car p)))
+          ;; only evaluate deftest and require
+          (if (and (cdr form) (equal (car form) 'require))
+              (eval form)
+            (when (and (cddr form) (equal (car form) 'deftest))
+              (incf num)
+              (setq err (elk-test-run-internal (cddr form)))
+              (when err
+                (push (list line err (cadr form)) errors))))))
+      (when (eq (derived-mode-p 'elk-test-mode) 'elk-test-mode)
+        (elk-test-set-buffer-state (if errors 'failure 'success)))
+      (when show-results
+        (message "%i tests run (%s errors)" num
+                 (if errors (length errors) "No"))
+        (when errors
+          (elk-test-print-errors buffer errors)))
+      errors)))
+
+(defun elk-test-print-errors (original-buffer errors &optional error-buffer)
+  (with-current-buffer (or error-buffer (elk-test-prepare-error-buffer))
+    (let ((inhibit-read-only t)
+          (keymap (make-sparse-keymap)))
+      (define-key keymap [mouse-2] 'elk-test-click)
+      (define-key keymap (kbd "<return>") 'elk-test-follow-link)
+      (dolist (err errors)
+        (insert "test <")
+        (let ((beg (point)))
+          (insert (car (cddr err)))
+          (set-text-properties
+           beg (point)
+           `(mouse-face highlight
+                        help-echo "mouse-1: Jump to this test"
+                        face '(:underline t)
+                        elk-test-buffer ,original-buffer
+                        elk-test-point ,(car err)
+                        keymap ,keymap
+                        follow-link t)))
+        (insert "> failed:\n")
+        (dolist (result (cadr err))
+          (insert "* " result "\n\n")))
+      (setq buffer-read-only t))))
+
+(defun elk-test-follow-link (pos)
+  "Follow the link at POS in an error buffer."
+  (interactive "d")
+  (let ((pos (get-text-property pos 'elk-test-point))
+        (buffer (get-text-property pos 'elk-test-buffer)))
+    (push-mark)
+    (switch-to-buffer buffer)
+    (goto-char pos)
+    (ignore-errors
+      (forward-sexp)
+      (backward-sexp))))
+
+(defun elk-test-click (event)
+  "Follow the link selected in an error buffer."
+  (interactive "e")
+  (with-current-buffer (window-buffer (posn-window (event-end event)))
+    (elk-test-follow-link (posn-point (event-end event)))))
 
 (defun elk-test-run-internal (test)
   (let (error-list)
@@ -320,11 +381,24 @@ If the state is set to 'success, a hook will be installed to switch to
                         (cons b nil)))
           (buffer-list)))
 
-(defun elk-test-run-all-buffers ()
-  "Run all elk-test buffers."
-  (interactive)
-  (dolist (buffer (elk-test-buffer-list))
-    (elk-test-run-buffer buffer)))
+(defun elk-test-run-all-buffers (&optional show-results)
+  "Run all buffers in `elk-test-mode'."
+  (interactive "p")
+  (let ((num-buffers 0)
+        (num-errors 0)
+        all-errors errors)
+    (dolist (buffer (elk-test-buffer-list))
+      (setq errors (elk-test-run-buffer buffer))
+      (incf num-errors (length errors))
+      (incf num-buffers)
+      (push (cons buffer errors) all-errors))
+    (when show-results
+      (message "%i test buffers run (%s errors)" num-buffers
+               (if errors (num-errors) "No"))
+      (when errors
+        (let ((error-buffer (elk-test-prepare-error-buffer)))
+          (dolist (err all-errors)
+            (elk-test-print-errors (car err) (cdr err) error-buffer)))))))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
