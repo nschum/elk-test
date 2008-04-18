@@ -45,16 +45,17 @@
 ;; (elk-test-run "combined-suite")
 ;; (elk-test-run)
 ;;
-;; To enable font-locking, add the following to your .emacs:
+;; Tests can be defined anywhere, but dedicated (.elk) test files are
+;; encouraged.  A major mode for these can be enabled like this:
 ;;
-;; (add-hook 'emacs-lisp-mode-hook 'elk-test-enable-font-lock)
+;; (add-to-list 'auto-mode-alist '("\\.elk\\'" . elk-test-mode))
 ;;
 ;;; Change Log:
 ;;
 ;; ????-??-?? (0.2)
 ;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
 ;;    Replaced `elk-test-error' with regular `error'.
-;;    Added font-lock support.
+;;    Added major made.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -75,6 +76,26 @@
 (defface elk-test-assertion-face
   '((default (:inherit font-lock-warning-face)))
   "*Face used for assertions in elk tests."
+  :group 'elk-test)
+
+(defface elk-test-success-face
+  '((t (:inherit mode-line-buffer-id
+        :background "dark olive green"
+        :foreground "black")))
+  "Face used for displaying a successful test result."
+  :group 'elk-test)
+
+(defface elk-test-success-modified-face
+  '((t (:inherit elk-test-success-face
+        :foreground "orange")))
+  "Face used for displaying a successful test result in a modified buffer."
+  :group 'elk-test)
+
+(defface elk-test-failure-face
+  '((t (:inherit mode-line-buffer-id
+        :background "firebrick"
+        :foreground "wheat")))
+  "Face used for displaying a failed test result."
   :group 'elk-test)
 
 (defvar elk-test-run-on-define nil
@@ -143,6 +164,8 @@ case a message describing the errors or success is displayed and returned."
                 (insert "test <" test "> failed:\n")
                 (dolist (result results)
                   (insert "* " result "\n"))))))
+        (when (eq major-mode 'elk-test-mode)
+          (elk-test-set-buffer-state (if failure 'failure 'success)))
         (if failure
             (display-buffer out-buffer)
           (kill-buffer out-buffer)
@@ -268,6 +291,48 @@ The resulting suite can be run by calling `elk-test-run' with parameter NAME."
   (font-lock-add-keywords nil elk-test-font-lock-keywords)
   (when fontify
     (font-lock-fontify-buffer)))
+
+(defun elk-test-buffer-changed-hook (a b)
+  "Hook used by `elk-test-set-buffer-state' to recognize modifications."
+  (elk-test-set-buffer-state 'success-modified))
+
+(defvar elk-test-buffer-state nil)
+(make-variable-buffer-local 'elk-test-buffer-state)
+
+(defun elk-test-set-buffer-state (state &optional buffer)
+  "Set BUFFER's success state to STATE.
+STATE may be either 'success, 'success-modified or 'failure.
+If the state is set to 'success, a hook will be installed to switch to
+'success-modified on a buffer change automatically."
+  (with-current-buffer (or buffer (current-buffer))
+    (setq elk-test-buffer-state state))
+  (if (eq state 'success)
+      (add-hook 'before-change-functions 'elk-test-buffer-changed-hook nil t)
+    (remove-hook 'before-change-functions 'elk-test-buffer-changed-hook t)))
+
+;;;###autoload
+(define-derived-mode elk-test-mode emacs-lisp-mode
+  ;; We create a special font based on buffer name, so we can change it later
+  '(:eval (propertize " elk-test " 'face
+                      (case elk-test-buffer-state
+                        ('success 'elk-test-success-face)
+                        ('success-modified 'elk-test-success-modified-face)
+                        ('failure 'elk-test-failure-face))))
+  "Minor mode used for elk tests."
+  (elk-test-enable-font-lock))
+
+(defun elk-test-buffer-list ()
+  "List all buffers in `elk-test-mode'."
+  (mapcan (lambda (b) (when (with-current-buffer b
+                              (eq major-mode 'elk-test-mode))
+                        (cons b nil)))
+          (buffer-list)))
+
+(defun elk-test-run-all-buffers ()
+  "Run all elk-test buffers."
+  (interactive)
+  (dolist (buffer (elk-test-buffer-list))
+    (elk-test-run-buffer buffer)))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
