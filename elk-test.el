@@ -349,28 +349,25 @@ The resulting group can be run by calling `elk-test-run' with parameter NAME."
   "Hook used by `elk-test-set-buffer-state' to recognize modifications."
   (elk-test-set-buffer-state 'success-modified))
 
-(defvar elk-test-buffer-state nil)
-(make-variable-buffer-local 'elk-test-buffer-state)
-
 (defun elk-test-set-buffer-state (state &optional buffer)
   "Set BUFFER's success state to STATE.
 STATE may be either 'success, 'success-modified or 'failure.
 If the state is set to 'success, a hook will be installed to switch to
 'success-modified on a buffer change automatically."
   (with-current-buffer (or buffer (current-buffer))
-    (setq elk-test-buffer-state state))
+    (set (make-local-variable 'mode-name)
+         (propertize mode-name 'face
+                     (case state
+                       ('success 'elk-test-success-face)
+                       ('success-modified 'elk-test-success-modified-face)
+                       ('failure 'elk-test-failure-face)))))
   (if (eq state 'success)
       (add-hook 'before-change-functions 'elk-test-buffer-changed-hook nil t)
     (remove-hook 'before-change-functions 'elk-test-buffer-changed-hook t)))
 
 ;;;###autoload
 (define-derived-mode elk-test-mode emacs-lisp-mode
-  ;; We create a special font based on buffer name, so we can change it later
-  '(:eval (propertize " elk-test " 'face
-                      (case elk-test-buffer-state
-                        ('success 'elk-test-success-face)
-                        ('success-modified 'elk-test-success-modified-face)
-                        ('failure 'elk-test-failure-face))))
+  "elk-test"
   "Minor mode used for elk tests."
   (elk-test-enable-font-lock))
 
