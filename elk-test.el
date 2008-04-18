@@ -60,13 +60,15 @@
 ;;    `elk-test-run-buffer' no longer evaluates the entire buffer.
 ;;    Test results are now clickable links.
 ;;    Added mode menu.
+;;    Added failure highlighting in fringes.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
 ;;
 ;;; Code:
 
-(require 'cl)
+(eval-when-compile (require 'cl))
+(require 'fringe-helper)
 
 (defgroup elk-test nil
   "Emacs Lisp testing framework"
@@ -101,6 +103,19 @@
         :foreground "wheat")))
   "Face used for displaying a failed test result."
   :group 'elk-test)
+
+(defface elk-test-fringe-face
+  '((t (:foreground "red"
+        :background "red")))
+  "*Face used for bitmaps in the fringe."
+  :group 'elk-test)
+
+(defcustom elk-test-use-fringe 'left-fringe
+  "*Mark failed tests in the fringe?"
+  :group 'elk-test
+  :type '(choice (const :tag "Off" nil)
+                 (const :tag "Left" left-fringe)
+                 (const :tag "Right" right-fringe)))
 
 (defvar elk-test-run-on-define nil
   "If non-nil, run elk-test tests/groups immediately when defining them.")
@@ -196,6 +211,8 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
                  (if errors (length errors) "No"))
         (when errors
           (elk-test-print-errors buffer errors)))
+      (when elk-test-use-fringe
+        (elk-test-mark-failures errors elk-test-use-fringe))
       (elk-test-update-menu `((,(current-buffer) . ,errors)))
       errors)))
 
@@ -447,6 +464,30 @@ If the state is set to 'success, a hook will be installed to switch to
             (elk-test-print-errors (car err) (cdr err) error-buffer)))))
     (elk-test-update-menu all-errors)
     errors))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar elk-test-fringe-regions nil)
+(make-variable-buffer-local 'elk-test-fringe-regions)
+
+(defun elk-test-unmark-failures ()
+  "Remove all highlighting from buffer."
+  (while elk-test-fringe-regions
+    (fringe-helper-remove (pop elk-test-fringe-regions))))
+
+(defun elk-test-mark-failures (failures which-side)
+  "Highlight failed tests in a fringe."
+  (elk-test-unmark-failures)
+  (save-excursion
+    (let (end)
+      (dolist (err errors)
+        (goto-char (car err))
+        (ignore-errors (forward-sexp))
+        (setq end (point))
+        (ignore-errors (backward-sexp))
+        (push (fringe-helper-insert-region (point) end 'filled-square
+                                           which-side 'elk-test-fringe-face)
+              elk-test-fringe-regions)))))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
