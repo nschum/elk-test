@@ -26,7 +26,7 @@
 ;;; Commentary:
 ;;
 ;; Use `deftest' to define a test and `elk-test-run' to run it.
-;; Create test bundles with `defsuite' or `build-suite'.
+;; Create test bundles with `elk-test-group'.
 ;; Verify your code with  `assert-equal', `assert-eq', `assert-eql',
 ;; `assert-nonnil', `assert-t', `assert-nil' and `assert-error'
 ;; to verify your code.
@@ -35,14 +35,11 @@
 ;;   (assert-equal t t)
 ;;   (assert-eq t 'foo))
 ;;
-;; (defsuite "suite1"
-;;   (deftest "test1" (assert-equal t t)))
-;;
 ;; (deftest "test2"
 ;;   (assert-equal t t))
-;; (build-suite "combined-suite" "test1" "test2")
+;; (elk-test-group "test-group" "test1" "test2")
 ;;
-;; (elk-test-run "combined-suite")
+;; (elk-test-run "test-group")
 ;; (elk-test-run)
 ;;
 ;; Tests can be defined anywhere, but dedicated (.elk) test files are
@@ -57,6 +54,7 @@
 ;;    Replaced `elk-test-error' with regular `error'.
 ;;    Added major made.
 ;;    `assert-error' now takes a regular expression as argument.
+;;    Removed defsuite functionality (Use .elk files instead).
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -71,7 +69,7 @@
 
 (defface elk-test-deftest-face
   '((default (:inherit font-lock-keyword-face)))
-  "*Face used for `deftest' and `defsuite' keywords."
+  "*Face used for `deftest' keyword."
   :group 'elk-test)
 
 (defface elk-test-assertion-face
@@ -100,13 +98,13 @@
   :group 'elk-test)
 
 (defvar elk-test-run-on-define nil
-  "If non-nil, run elk-test tests/suites immediately when defining them.")
+  "If non-nil, run elk-test tests/groups immediately when defining them.")
 
 (defvar elk-test-map (make-hash-table :test 'equal)
-  "A map of elk-test test/suite names to their implementation.")
+  "A map of elk-test test/groups names to their implementation.")
 
 (defvar elk-test-list nil
-  "A list of all defined elk-test tests/suites.")
+  "A list of all defined elk-test tests/groups.")
 
 (defun elk-test-clear ()
   "Remove all tests from memory."
@@ -121,18 +119,18 @@ case a message describing the errors or success is displayed and returned."
    (list (completing-read "Test name: " elk-test-list nil t)))
   (let ((name name))
   (let ((error-list nil)
-        (test-or-suite (gethash name elk-test-map)))
-    (if (not test-or-suite)
+        (test-or-group (gethash name elk-test-map)))
+    (if (not test-or-group)
         (error "Undefined test <%s>" name)
-      (if (equal (car test-or-suite) 'suite)
-          ;; is test suite
-          (let ((map (cadr test-or-suite)))
-            (dolist (test (caddr test-or-suite))
+      (if (equal (car test-or-group) 'group)
+          ;; is test group
+          (let ((map (cadr test-or-group)))
+            (dolist (test (caddr test-or-group))
               (setq error-list
                     (append error-list
                             (elk-test-run-internal (gethash test map))))))
         ;; is simple test
-        (setq error-list (elk-test-run-internal test-or-suite)))
+        (setq error-list (elk-test-run-internal test-or-group)))
       (if (or string-result (interactive-p))
           (message (if error-list
                        (mapconcat 'identity error-list "\n")
@@ -251,24 +249,9 @@ Use `assert-equal', `assert-eq', `assert-eql', `assert-nonnil', `assert-t',
                `(elk-test-run ',name ,t)
              name)))
 
-(defmacro defsuite (name &rest body)
-  "Define a test suite using a collection of `deftest' forms.
-The resulting suite can be called with `elk-test-run' and parameter NAME."
-  `(let ((suite
-          (let ((elk-test-map (make-hash-table :test 'equal))
-                (elk-test-list nil))
-            ,@body
-            (list 'suite elk-test-map (reverse elk-test-list)))))
-     (unless (gethash ,name elk-test-map)
-       (push ,name elk-test-list))
-     (puthash ,name suite elk-test-map)
-     ,(if elk-test-run-on-define
-          `(elk-test-run ,name t)
-        name)))
-
-(defun build-suite (name &rest tests)
-  "Define a test suite using a collection of test names.
-The resulting suite can be run by calling `elk-test-run' with parameter NAME."
+(defun elk-test-group (name &rest tests)
+  "Define a test group using a collection of test names.
+The resulting group can be run by calling `elk-test-run' with parameter NAME."
   (unless (gethash name elk-test-map)
     (push name elk-test-list))
   (puthash name
@@ -282,14 +265,14 @@ The resulting suite can be run by calling `elk-test-run' with parameter NAME."
                  (unless test
                    (error "Undefined test <%s>" test-name))
                  (puthash test-name test map)))
-             (list 'suite map (reverse list)))
+             (list 'group map (reverse list)))
            elk-test-map)
   (if elk-test-run-on-define
-      (elk-test-run "sample suite" t)
+      (elk-test-run name t)
     name))
 
 (defconst elk-test-font-lock-keywords
-  `(("(\\_<\\(deftest\\|defsuite\\)\\_>" 1 'font-lock-keyword-face)
+  `(("(\\_<\\(deftest\\)\\_>" 1 'font-lock-keyword-face)
     (,(concat "(\\_<" (regexp-opt '("assert-equal" "assert-eq" "assert-eql"
                                     "assert-nonnil" "assert-t" "assert-nil"
                                     "assert-error") t)

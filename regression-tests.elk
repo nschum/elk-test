@@ -18,30 +18,6 @@
     (assert-equal '("test2" "test1") elk-test-list)
     ))
 
-(deftest "defsuite"
-  (let ((elk-test-list nil)
-        (elk-test-map (make-hash-table :test 'equal))
-        (elk-test-run-on-define nil))
-
-    (defsuite "suite1"
-      (deftest "test" (assert-equal t t)))
-    (let ((lookup (gethash "suite1" elk-test-map)))
-      (assert-equal 'suite (car lookup))
-      (assert-equal '("test") (caddr lookup))
-      (assert-equal '((assert-equal t t)) (gethash "test" (cadr lookup)))
-      (assert-nil (gethash "foo" (cadr lookup))))
-
-    (defsuite "suite2"
-      (deftest "test1" (assert-equal nil t))
-      (deftest "test2" (assert-equal t nil)))
-    (let ((lookup (gethash "suite2" elk-test-map)))
-      (assert-equal 'suite (car lookup))
-      (assert-equal '("test1" "test2") (caddr lookup))
-      (assert-equal '((assert-equal nil t)) (gethash "test1" (cadr lookup)))
-      (assert-equal '((assert-equal t nil)) (gethash "test2" (cadr lookup)))
-      (assert-nil (gethash "test" (cadr lookup))))
-    ))
-
 (deftest "assert-equal"
   (assert-nil (elk-test-run-internal '((assert-equal t t))))
   (assert-nil (elk-test-run-internal '((assert-equal nil nil))))
@@ -117,13 +93,6 @@
 
 (deftest "run"
   (let ((elk-test-run-on-define nil))
-    (defsuite "suite1"
-      (deftest "test" (assert-equal t t)))
-    (assert-nil (elk-test-run "suite1"))
-
-    (defsuite "suite1"
-      (deftest "test" (assert-equal t nil)))
-    (assert-nonnil (elk-test-run "suite1"))
 
     (deftest "test" (assert-equal t nil))
     (assert-nonnil (elk-test-run "test"))
@@ -132,11 +101,11 @@
     (assert-nil (elk-test-run "test"))
 
     (deftest "test2" (assert-equal t t))
-    (build-suite "suite1" "test" "test2")
+    (elk-test-group "suite1" "test" "test2")
     (assert-nil (elk-test-run "suite1"))
 
     (deftest "test2" (assert-equal t nil))
-    (build-suite "suite2" "test" "test2")
+    (elk-test-group "suite2" "test" "test2")
     (assert-nonnil (elk-test-run "suite2"))
     (assert-nil (elk-test-run "suite1"))
     ))
