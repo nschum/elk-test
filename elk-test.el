@@ -120,42 +120,33 @@
 (defvar elk-test-run-on-define nil
   "If non-nil, run elk-test tests/groups immediately when defining them.")
 
-(defvar elk-test-map (make-hash-table :test 'equal)
-  "A map of elk-test test/groups names to their implementation.")
-
-(defvar elk-test-list nil
-  "A list of all defined elk-test tests/groups.")
+(defvar elk-test-alist nil
+  "An alist of all defined elk-test tests/groups and their bodies.")
 
 (defun elk-test-clear ()
   "Remove all tests from memory."
-  (setq elk-test-map (make-hash-table :test 'equal)
-        elk-test-list nil))
+  (setq elk-test-alist nil))
 
 (defun elk-test-run (name &optional string-result)
   "Run the test case defined as NAME.
 The result is a list of errors strings, unless STRING-RESULT is set, in which
 case a message describing the errors or success is displayed and returned."
   (interactive
-   (list (completing-read "Test name: " elk-test-list nil t)))
-  (let ((name name))
+   (list (completing-read "Test name: " elk-test-alist nil t)))
   (let ((error-list nil)
-        (test-or-group (gethash name elk-test-map)))
+        (test-or-group (cdr (assoc name elk-test-alist))))
     (if (not test-or-group)
         (error "Undefined test <%s>" name)
-      (if (equal (car test-or-group) 'group)
-          ;; is test group
-          (let ((map (cadr test-or-group)))
-            (dolist (test (caddr test-or-group))
-              (setq error-list
-                    (append error-list
-                            (elk-test-run-internal (gethash test map))))))
-        ;; is simple test
-        (setq error-list (elk-test-run-internal test-or-group)))
+      (setq error-list (if (equal (car test-or-group) 'group)
+                           ;; is test group
+                           (mapcan 'elk-test-run (cdr test-or-group))
+                         ;; is simple test
+                         (elk-test-run-internal test-or-group)))
       (if (or string-result (interactive-p))
           (message (if error-list
                        (mapconcat 'identity error-list "\n")
                      "Test run was successful."))
-        error-list)))))
+        error-list))))
 
 (defun elk-test-prepare-error-buffer ()
   "Create and prepare a buffer for displaying errors."
@@ -328,13 +319,17 @@ message.  nil accepts any error.  Use nil with caution, as errors like
               (error "assert-error for <%s> failed: expected <%s>, raised <%s>"
                      '(progn . ,body) ,error-message-regexp actual-error))))))))
 
+(defsubst elk-test-set-test (name test-data)
+  (let ((match (assoc name elk-test-alist)))
+    (if match
+        (setcdr match test-data)
+      (push (cons name test-data) elk-test-alist))))
+
 (defmacro deftest (name &rest body)
   "Define a test case.
 Use `assert-equal', `assert-eq', `assert-eql', `assert-nonnil', `assert-t',
 `assert-nil' and `assert-error' to verify the code."
-  `(progn (unless (gethash ,name elk-test-map)
-            (push ,name elk-test-list))
-          (puthash ,name ',body elk-test-map)
+  `(progn (elk-test-set-test ,name ',body)
           ,(if elk-test-run-on-define
                `(elk-test-run ',name ,t)
              name)))
@@ -342,21 +337,10 @@ Use `assert-equal', `assert-eq', `assert-eql', `assert-nonnil', `assert-t',
 (defun elk-test-group (name &rest tests)
   "Define a test group using a collection of test names.
 The resulting group can be run by calling `elk-test-run' with parameter NAME."
-  (unless (gethash name elk-test-map)
-    (push name elk-test-list))
-  (puthash name
-           (let ((map (make-hash-table :test 'equal))
-                 (list nil))
-             (dolist (test-name tests)
-               (push test-name list)
-               (when (gethash test-name map)
-                 (error "Test used twice"))
-               (let ((test (gethash test-name elk-test-map)))
-                 (unless test
-                   (error "Undefined test <%s>" test-name))
-                 (puthash test-name test map)))
-             (list 'group map (reverse list)))
-           elk-test-map)
+  (dolist (test tests)
+    (unless (cdr (assoc test elk-test-alist))
+      (error "Undefined test <%s>" test)))
+  (elk-test-set-test name (cons 'group tests))
   (if elk-test-run-on-define
       (elk-test-run name t)
     name))
