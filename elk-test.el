@@ -69,6 +69,7 @@
 
 (eval-when-compile (require 'cl))
 (require 'fringe-helper)
+(require 'newcomment)
 
 (defgroup elk-test nil
   "Emacs Lisp testing framework"
@@ -164,6 +165,43 @@ case a message describing the errors or success is displayed and returned."
         (switch-to-buffer buffer)
       (message "No error buffer found"))))
 
+(defun elk-test-find-sub-expression (beg end number)
+  (save-excursion
+    (goto-char beg)
+    (down-list)
+    (forward-sexp (1+ number))
+    (backward-sexp)
+    (bounds-of-thing-at-point 'sexp)))
+
+(defun elk-test-run-buffer-internal ()
+  (let ((beg (point))
+        (sexp (read (current-buffer)))
+        errors)
+    ;; only evaluate deftest and require
+    (cond
+     ((and (cdr sexp) (equal (car sexp) 'require))
+      ;; (require ...)
+      (condition-case err
+          (progn
+            (eval sexp)
+            nil)
+        (error (list nil "require"
+                     (cons (cons beg (point))
+                           (format "Feature \"%s\" not found" (cdr sexp)))))))
+     ((and (cddr sexp) (equal (car sexp) 'deftest))
+      ;; (deftest ...)
+      (let ((i 2))
+        (dolist (sexp (cddr sexp))
+          (condition-case err
+              (eval sexp)
+            (error (push (cons (elk-test-find-sub-expression beg (point) i)
+                               (error-message-string err)) errors)))))
+      (if errors
+          (list* (cons beg (point)) ;; region
+                 (cadr sexp)        ;; test name
+                 (nreverse errors)) ;; ((region . error-message) ...)
+        t)))))
+
 (defun elk-test-run-buffer (&optional buffer show-results)
   "Run tests defined with `deftest' in BUFFER.
 Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
@@ -174,38 +212,39 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
     (goto-char (point-min))
     (let ((inhibit-read-only t)
           (num 0)
-          sexp err errors)
+          progress errors)
       (condition-case err
-          (while (not (looking-at "[ \f\t\n\r\v]*\\'"))
-            (push (cons (point) (read (current-buffer))) sexp))
+          (progn
+            (comment-forward)
+            (while (not (= (point) (point-max)))
+              (setq progress (point))
+              (when (setq err (elk-test-run-buffer-internal))
+                (incf num)
+                (when (consp err)
+                  (push err errors)))
+              (comment-forward)))
         (error
-         ;; parse error
-         (setq errors (list 0
-                            (format "Parsing buffer <%s> failed:\n%s"
-                                    (buffer-name) (error-message-string err))))
-         (setq sexp nil)))
-      (dolist (p sexp)
-        (let ((form (cdr p))
-              (line (car p)))
-          ;; only evaluate deftest and require
-          (if (and (cdr form) (equal (car form) 'require))
-              (eval form)
-            (when (and (cddr form) (equal (car form) 'deftest))
-              (incf num)
-              (setq err (elk-test-run-internal (cddr form)))
-              (when err
-                (push (list line err (cadr form)) errors))))))
+         (push (list nil (format "Parsing buffer \"%s\" failed" (buffer-name))
+                     (cons (cons progress (point-max))
+                           (error-message-string err)))
+               errors)))
+      (setq errors (nreverse errors))
       (when (eq (derived-mode-p 'elk-test-mode) 'elk-test-mode)
         (elk-test-set-buffer-state (if errors 'failure 'success)))
       (when show-results
         (message "%i tests run (%s errors)" num
                  (if errors (length errors) "No"))
         (when errors
-          (elk-test-print-errors buffer errors)))
+          (elk-test-print-errors (current-buffer) errors)))
       (when elk-test-use-fringe
         (elk-test-mark-failures errors elk-test-use-fringe))
       (elk-test-update-menu `((,(current-buffer) . ,errors)))
       errors)))
+
+(defsubst elk-test-insert-with-properties (text properties)
+  (let ((beg (point)))
+    (insert text)
+    (set-text-properties beg (point) properties)))
 
 (defun elk-test-print-errors (original-buffer errors &optional error-buffer)
   (with-current-buffer (or error-buffer (elk-test-prepare-error-buffer))
@@ -214,36 +253,41 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
       (define-key keymap [mouse-2] 'elk-test-click)
       (define-key keymap (kbd "<return>") 'elk-test-follow-link)
       (dolist (err errors)
-        (insert "test <")
-        (let ((beg (point)))
-          (insert (car (cddr err)))
-          (set-text-properties
-           beg (point)
-           `(mouse-face highlight
-                        help-echo "mouse-1: Jump to this test"
-                        face '(:underline t)
-                        elk-test-buffer ,original-buffer
-                        elk-test-point ,(car err)
-                        keymap ,keymap
-                        follow-link t)))
+        (insert "<")
+        (elk-test-insert-with-properties
+         (cadr err) (when (car err)
+                      `(mouse-face highlight
+                      help-echo "mouse-1: Jump to this test"
+                      face '(:underline t)
+                      elk-test-buffer ,original-buffer
+                      elk-test-region ,(car err)
+                      keymap ,keymap
+                      follow-link t)))
         (insert "> failed:\n")
-        (dolist (result (cadr err))
-          (insert "* " result "\n\n")))
+        (dolist (failure (cddr err))
+          (insert "* ")
+          (elk-test-insert-with-properties
+           (cdr failure) (when (car failure)
+                           `(mouse-face highlight
+                            help-echo "mouse-1: Jump to this error"
+                            face '(:underline t)
+                            elk-test-buffer ,original-buffer
+                            elk-test-region ,(car failure)
+                            keymap ,keymap
+                            follow-link t)))
+          (insert "\n\n")))
       (setq buffer-read-only t))))
 
-(defun elk-test-jump (buffer pos)
+(defun elk-test-jump (buffer region)
   (push-mark)
   (switch-to-buffer buffer)
-  (goto-char pos)
-  (ignore-errors
-    (forward-sexp)
-    (backward-sexp)))
+  (goto-char (car region)))
 
 (defun elk-test-follow-link (pos)
   "Follow the link at POS in an error buffer."
   (interactive "d")
   (elk-test-jump (get-text-property pos 'elk-test-buffer)
-                 (get-text-property pos 'elk-test-point)))
+                 (get-text-property pos 'elk-test-region)))
 
 (defun elk-test-click (event)
   "Follow the link selected in an error buffer."
@@ -411,12 +455,12 @@ If the state is set to 'success, a hook will be installed to switch to
       ,(mapcan (lambda (buffer-errors)
                  (mapcar (lambda (err)
                            (vector
-                            (concat (car (cddr err)) " - "
-                                    (elk-test-shorten-string (car (cadr err))))
+                            (concat (cadr err) " - "
+                                    (elk-test-shorten-string (cdar (cddr err))))
                             `(lambda ()
                                (interactive)
                                (elk-test-jump ,(car buffer-errors)
-                                              ,(car err)))))
+                                              ',(caar (cddr err))))))
                          (cdr buffer-errors)))
                errors)))
   (easy-menu-add elk-test-menu))
@@ -463,14 +507,11 @@ If the state is set to 'success, a hook will be installed to switch to
   "Highlight failed tests in a fringe."
   (elk-test-unmark-failures)
   (save-excursion
-    (let (end)
-      (dolist (err errors)
-        (goto-char (car err))
-        (ignore-errors (forward-sexp))
-        (setq end (point))
-        (ignore-errors (backward-sexp))
-        (push (fringe-helper-insert-region (point) end 'filled-square
-                                           which-side 'elk-test-fringe-face)
+    (dolist (failure failures)
+      (dolist (form (cddr failure))
+        (push (fringe-helper-insert-region (caar form) (cdar form)
+                                           'filled-square which-side
+                                           'elk-test-fringe-face)
               elk-test-fringe-regions)))))
 
 (provide 'elk-test)
