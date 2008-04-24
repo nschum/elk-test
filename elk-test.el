@@ -70,6 +70,7 @@
 (eval-when-compile (require 'cl))
 (require 'fringe-helper)
 (require 'newcomment)
+(require 'eldoc)
 
 (defgroup elk-test nil
   "Emacs Lisp testing framework"
@@ -117,6 +118,17 @@
   :type '(choice (const :tag "Off" nil)
                  (const :tag "Left" left-fringe)
                  (const :tag "Right" right-fringe)))
+
+(defface elk-test-failed-region-face
+  nil
+  "*Face used for highlighting failures in buffers."
+  :group 'elk-test)
+
+(defcustom elk-test-mode-use-eldoc t
+  "*Override `eldoc-documentation-function' and enable `eldoc-mode'."
+  :group 'elk-test
+  :type '(choice (const :tag "Off" nil)
+                 (const :tag "On" t)))
 
 (defvar elk-test-run-on-define nil
   "If non-nil, run elk-test tests/groups immediately when defining them.")
@@ -235,8 +247,7 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
         (message "%i tests run (%s errors)" num
                  (if errors (length errors) "No"))
         (elk-test-print-errors (current-buffer) errors))
-      (when (and elk-test-use-fringe window-system)
-        (elk-test-mark-failures errors elk-test-use-fringe))
+      (elk-test-mark-failures errors elk-test-use-fringe)
       (elk-test-update-menu `((,(current-buffer) . ,errors)))
       errors)))
 
@@ -425,7 +436,11 @@ If the state is set to 'success, a hook will be installed to switch to
 (define-derived-mode elk-test-mode emacs-lisp-mode
   "elk-test"
   "Minor mode used for elk tests."
-  (elk-test-enable-font-lock))
+  (elk-test-enable-font-lock)
+  (when elk-test-mode-use-eldoc
+    (set (make-local-variable 'eldoc-documentation-function)
+         'elk-test-eldoc-function)
+    (eldoc-mode 1)))
 
 (defsubst elk-test-shorten-string (str)
   "Shorten STR to 40 characters."
@@ -498,19 +513,40 @@ If the state is set to 'success, a hook will be installed to switch to
 
 (defun elk-test-unmark-failures ()
   "Remove all highlighting from buffer."
+  (interactive)
   (while elk-test-fringe-regions
     (fringe-helper-remove (pop elk-test-fringe-regions))))
 
 (defun elk-test-mark-failures (failures which-side)
-  "Highlight failed tests in a fringe."
+  "Highlight failed tests."
   (elk-test-unmark-failures)
   (save-excursion
     (dolist (failure failures)
       (dolist (form (cddr failure))
-        (push (fringe-helper-insert-region (caar form) (cdar form)
-                                           'filled-square which-side
-                                           'elk-test-fringe-face)
-              elk-test-fringe-regions)))))
+        (when (and which-side window-system)
+          (push (fringe-helper-insert-region (caar form) (cdar form)
+                                             'filled-square which-side
+                                             'elk-test-fringe-face)
+              elk-test-fringe-regions))
+        (push (make-overlay (caar form) (cdar form))
+              elk-test-fringe-regions)
+        (overlay-put (car elk-test-fringe-regions)
+                     'elk-test-error (cdr form))
+        (overlay-put (car elk-test-fringe-regions)
+                     'face 'elk-test-failed-region-face)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun elk-test-eldoc-function ()
+  "Return the error message for the failure at point.
+This function is suitable for use as `eldoc-documentation-function'."
+  (interactive)
+  (let (prop)
+    (dolist (ov (overlays-at (point)))
+      (when (setq prop (overlay-get ov 'elk-test-error))
+        (when (interactive-p)
+          (message "%s" prop))
+        (return prop)))))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
