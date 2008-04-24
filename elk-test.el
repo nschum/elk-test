@@ -234,9 +234,8 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
       (when show-results
         (message "%i tests run (%s errors)" num
                  (if errors (length errors) "No"))
-        (when errors
-          (elk-test-print-errors (current-buffer) errors)))
-      (when elk-test-use-fringe
+        (elk-test-print-errors (current-buffer) errors))
+      (when (and elk-test-use-fringe window-system)
         (elk-test-mark-failures errors elk-test-use-fringe))
       (elk-test-update-menu `((,(current-buffer) . ,errors)))
       errors)))
@@ -486,10 +485,9 @@ If the state is set to 'success, a hook will be installed to switch to
     (when show-results
       (message "%i test buffers run (%s errors)" num-buffers
                (if errors num-errors "No"))
-      (when errors
-        (let ((error-buffer (elk-test-prepare-error-buffer)))
-          (dolist (err all-errors)
-            (elk-test-print-errors (car err) (cdr err) error-buffer)))))
+      (let ((error-buffer (elk-test-prepare-error-buffer)))
+        (dolist (err all-errors)
+          (elk-test-print-errors (car err) (cdr err) error-buffer))))
     (elk-test-update-menu all-errors)
     errors))
 
