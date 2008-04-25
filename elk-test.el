@@ -216,6 +216,8 @@ case a message describing the errors or success is displayed and returned."
                  (nreverse errors)) ;; ((region . error-message) ...)
         t)))))
 
+(defvar elk-test-last-buffer nil)
+
 (defun elk-test-run-buffer (&optional buffer show-results)
   "Run tests defined with `deftest' in BUFFER.
 Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
@@ -223,6 +225,7 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
   (save-excursion
     (when buffer
       (set-buffer buffer))
+    (setq elk-test-last-buffer (current-buffer))
     (goto-char (point-min))
     (let ((inhibit-read-only t)
           (num 0)
@@ -252,6 +255,14 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
       (elk-test-mark-failures errors elk-test-use-fringe)
       (elk-test-update-menu `((,(current-buffer) . ,errors)))
       errors)))
+
+(defun elk-test-run-a-buffer (buffer)
+  "Like `elk-test-run-buffer', but query for buffer to run."
+  (interactive
+   (let ((buffer-names (mapcar 'buffer-name (elk-test-buffer-list))))
+     (list (completing-read "Buffer: " buffer-names
+                            nil t (buffer-name elk-test-last-buffer)))))
+  (elk-test-run-buffer buffer t))
 
 (defsubst elk-test-insert-with-properties (text properties)
   (let ((beg (point)))
