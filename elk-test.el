@@ -36,18 +36,20 @@
 ;;
 ;; Verify your code with  `assert-equal', `assert-eq', `assert-eql',
 ;; `assert-nonnil', `assert-t', `assert-nil' and `assert-error'
-;; to verify your code.
+;; to verify your code like this:
 ;;
-;; (deftest "test1"
-;;   (assert-equal t t)
-;;   (assert-eq t 'foo))
+;; (deftest "test 1"
+;;   (assert-eql 5 (+ 2 3)))
 ;;
-;; (deftest "test2"
-;;   (assert-equal t t))
-;; (elk-test-group "test-group" "test1" "test2")
+;; (deftest "test 2"
+;;   (assert-equal '(x y) (list 'x 'y))
+;;   (assert-eq 'x (car '(x y))))
 ;;
-;; (elk-test-run "test-group")
-;; (elk-test-run)
+;; (deftest "test 3"
+;;   (assert-equal '(x y) (list 'y 'x))) ;; this will fail
+;;
+;; You can then run every test in the buffer with `elk-test-run-buffer', or
+;; individual tests or groups with `elk-test-run'.
 ;;
 ;;; Change Log:
 ;;
