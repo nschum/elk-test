@@ -144,6 +144,12 @@
   :type '(choice (const :tag "Off" nil)
                  (const :tag "On" t)))
 
+(defcustom elk-test-pop-to-error-buffer t
+  "*If non-nil, pop up the error buffer when a test fails."
+  :group 'elk-test
+  :type '(choice (const :tag "Off" nil)
+                 (const :tag "On" t)))
+
 (defvar elk-test-alist nil
   "An alist of all defined elk-test tests/groups and their bodies.")
 
@@ -308,7 +314,9 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
                             keymap ,keymap
                             follow-link t)))
           (insert "\n\n")))
-      (setq buffer-read-only t))))
+      (setq buffer-read-only t))
+    (when elk-test-pop-to-error-buffer
+      (pop-to-buffer (current-buffer)))))
 
 (defun elk-test-jump (buffer region)
   (push-mark)
