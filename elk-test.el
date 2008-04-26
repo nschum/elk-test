@@ -78,37 +78,37 @@
   "Emacs Lisp testing framework"
   :group 'lisp)
 
-(defface elk-test-deftest-face
+(defface elk-test-deftest
   '((default (:inherit font-lock-keyword-face)))
   "*Face used for `deftest' keyword."
   :group 'elk-test)
 
-(defface elk-test-assertion-face
+(defface elk-test-assertion
   '((default (:inherit font-lock-warning-face)))
   "*Face used for assertions in elk tests."
   :group 'elk-test)
 
-(defface elk-test-success-face
+(defface elk-test-success
   '((t (:inherit mode-line-buffer-id
         :background "dark olive green"
         :foreground "black")))
   "Face used for displaying a successful test result."
   :group 'elk-test)
 
-(defface elk-test-success-modified-face
-  '((t (:inherit elk-test-success-face
+(defface elk-test-success-modified
+  '((t (:inherit elk-test-success
         :foreground "orange")))
   "Face used for displaying a successful test result in a modified buffer."
   :group 'elk-test)
 
-(defface elk-test-failure-face
+(defface elk-test-failure
   '((t (:inherit mode-line-buffer-id
         :background "firebrick"
         :foreground "wheat")))
   "Face used for displaying a failed test result."
   :group 'elk-test)
 
-(defface elk-test-fringe-face
+(defface elk-test-fringe
   '((t (:foreground "red"
         :background "red")))
   "*Face used for bitmaps in the fringe."
@@ -121,7 +121,7 @@
                  (const :tag "Left" left-fringe)
                  (const :tag "Right" right-fringe)))
 
-(defface elk-test-failed-region-face
+(defface elk-test-failed-region
   nil
   "*Face used for highlighting failures in buffers."
   :group 'elk-test)
@@ -132,8 +132,11 @@
   :type '(choice (const :tag "Off" nil)
                  (const :tag "On" t)))
 
-(defvar elk-test-run-on-define nil
-  "If non-nil, run elk-test tests/groups immediately when defining them.")
+(defcustom elk-test-run-on-define nil
+  "*If non-nil, run elk-test tests/groups immediately when defining them."
+  :group 'elk-test
+  :type '(choice (const :tag "Off" nil)
+                 (const :tag "On" t)))
 
 (defvar elk-test-alist nil
   "An alist of all defined elk-test tests/groups and their bodies.")
@@ -413,11 +416,11 @@ The resulting group can be run by calling `elk-test-run' with parameter NAME."
     name))
 
 (defconst elk-test-font-lock-keywords
-  `(("(\\_<\\(deftest\\)\\_>" 1 'font-lock-keyword-face)
+  `(("(\\_<\\(deftest\\)\\_>" 1 'font-lock-deftest)
     (,(concat "(\\_<" (regexp-opt '("assert-equal" "assert-eq" "assert-eql"
                                     "assert-nonnil" "assert-t" "assert-nil"
                                     "assert-error") t)
-              "\\_>") 1 'elk-test-assertion-face)))
+              "\\_>") 1 'elk-test-assertion)))
 
 (defun elk-test-enable-font-lock (&optional fontify)
   (interactive "p")
@@ -438,9 +441,9 @@ If the state is set to 'success, a hook will be installed to switch to
     (set (make-local-variable 'mode-name)
          (propertize mode-name 'face
                      (case state
-                       ('success 'elk-test-success-face)
-                       ('success-modified 'elk-test-success-modified-face)
-                       ('failure 'elk-test-failure-face)))))
+                       ('success 'elk-test-success)
+                       ('success-modified 'elk-test-success-modified)
+                       ('failure 'elk-test-failure)))))
   (if (eq state 'success)
       (add-hook 'before-change-functions 'elk-test-buffer-changed-hook nil t)
     (remove-hook 'before-change-functions 'elk-test-buffer-changed-hook t)))
@@ -539,14 +542,14 @@ If the state is set to 'success, a hook will be installed to switch to
         (when (and which-side window-system)
           (push (fringe-helper-insert-region (caar form) (cdar form)
                                              'filled-square which-side
-                                             'elk-test-fringe-face)
+                                             'elk-test-fringe)
               elk-test-fringe-regions))
         (push (make-overlay (caar form) (cdar form))
               elk-test-fringe-regions)
         (overlay-put (car elk-test-fringe-regions)
                      'elk-test-error (cdr form))
         (overlay-put (car elk-test-fringe-regions)
-                     'face 'elk-test-failed-region-face)))))
+                     'face 'elk-test-failed-region)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
