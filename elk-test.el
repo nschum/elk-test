@@ -48,8 +48,14 @@
 ;; (deftest "test 3"
 ;;   (assert-equal '(x y) (list 'y 'x))) ;; this will fail
 ;;
-;; You can then run every test in the buffer with `elk-test-run-buffer', or
-;; individual tests or groups with `elk-test-run'.
+;; You can then run every test in the current buffer with `elk-test-run-buffer',
+;; in a different buffer with `elk-test-run-a-buffer', or individual tests and
+;; test groups with `elk-test-run'.
+;;
+;; To bind some keys, add the following to your .emacs:
+;;
+;; (define-key elk-test-mode-map (kbd "M-<f7>") 'elk-test-run-buffer)
+;; (define-key emacs-lisp-mode-map (kbd "<f7>") 'elk-test-run-a-buffer)
 ;;
 ;;; Change Log:
 ;;
