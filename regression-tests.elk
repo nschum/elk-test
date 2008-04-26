@@ -91,6 +91,13 @@
   (assert-nonnil (elk-test-run-internal '((assert-error "x\\|y" nil))))
   )
 
+(deftest "assert-that"
+  (assert-nil (elk-test-run-internal
+               '((assert-that (lambda (result) (null result)) nil))))
+  (assert-nonnil (elk-test-run-internal
+                  '((assert-that (lambda (result) (null result)) t))))
+  )
+
 (deftest "run"
   (let ((elk-test-alist nil)
         (elk-test-run-on-define nil))

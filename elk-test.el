@@ -57,6 +57,19 @@
 ;; (define-key elk-test-mode-map (kbd "M-<f7>") 'elk-test-run-buffer)
 ;; (define-key emacs-lisp-mode-map (kbd "<f7>") 'elk-test-run-a-buffer)
 ;;
+;;
+;; To create your own assertions, use `assert-that'.  For example, the following
+;; code defines `assert-eq' using `assert-that':
+;;
+;; (defmacro assert-eq (expected actual)
+;;   "Assert that ACTUAL equals EXPECTED, or signal a warning."
+;;   `(assert-that (lambda (actual) (eq ,expected ,actual))
+;;                 actual
+;;                 "assert-eq"
+;;                 (lambda (actual)
+;;                   (format "expected <%s>, was <%s>" ,expected ,actual))))
+;;
+;;
 ;;; Change Log:
 ;;
 ;; ????-??-?? (0.2)
@@ -69,6 +82,7 @@
 ;;    Test results are now clickable links.
 ;;    Added mode menu.
 ;;    Added failure highlighting in fringes.
+;;    Added `assert-that'.
 ;;
 ;; 2006-11-04 (0.1)
 ;;    Initial release.
@@ -315,8 +329,9 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
                             follow-link t)))
           (insert "\n\n")))
       (setq buffer-read-only t))
-    (when elk-test-pop-to-error-buffer
-      (pop-to-buffer (current-buffer)))))
+    (and errors
+         elk-test-pop-to-error-buffer
+         (pop-to-buffer (current-buffer)))))
 
 (defun elk-test-jump (buffer region)
   (push-mark)
@@ -379,6 +394,23 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
      (error "assert-nil for <%s> failed: was <%s>"
                      ',value ,value)))
 
+(defmacro assert-that (func form &optional assertion-name error-func)
+  "Assert that FUNC returns non-nil on evaluated result of FORM.
+FUNC must be a function that takes the result of FORM as an argument and
+returns nil to designate a failure, or non-nil to designate success.
+ASSERTION-NAME is the name to use when printing errors, it defaults to
+\"assert-that <FUNC>\".  ERROR-FUNC is a function given the same arguments
+as FUNC that returns an error description.  The error description defaults
+to \"was <...>\""
+  (unless (funcall func form)
+    (unless assertion-name
+      (setq assertion-name (format "assert-that <%s>" func)))
+    `(error "%s for <%s> failed: %s"
+            ,assertion-name ',form
+            ,(if error-func
+                 (funcall error-func form)
+               `(format "was <%s>" ,form)))))
+
 (defmacro assert-error (error-message-regexp &rest body)
   "Assert that BODY raises an `error', or signal a warning.
 ERROR-MESSAGE-REGEXP is a regular expression describing the expected error
@@ -433,7 +465,7 @@ The resulting group can be run by calling `elk-test-run' with parameter NAME."
   `(("(\\_<\\(deftest\\)\\_>" 1 'font-lock-deftest)
     (,(concat "(\\_<" (regexp-opt '("assert-equal" "assert-eq" "assert-eql"
                                     "assert-nonnil" "assert-t" "assert-nil"
-                                    "assert-error") t)
+                                    "assert-error" "assert-that") t)
               "\\_>") 1 'elk-test-assertion)))
 
 (defun elk-test-enable-font-lock (&optional fontify)
