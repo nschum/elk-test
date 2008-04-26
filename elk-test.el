@@ -3,7 +3,7 @@
 ;; Copyright (C) 2006,2008 Nikolaj Schumacher
 ;;
 ;; Author: Nikolaj Schumacher <bugs * nschum de>
-;; Version: 0.1
+;; Version: 0.2
 ;; Keywords: lisp
 ;; URL: http://nschum.de/src/emacs/guess-style/
 ;; Compatibility: GNU Emacs 22.x
@@ -72,7 +72,7 @@
 ;;
 ;;; Change Log:
 ;;
-;; ????-??-?? (0.2)
+;; 2008-04-26 (0.2)
 ;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
 ;;    Replaced `elk-test-error' with regular `error'.
 ;;    Added major made.
