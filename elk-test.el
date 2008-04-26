@@ -233,12 +233,13 @@ case a message describing the errors or success is displayed and returned."
                            (format "Feature \"%s\" not found" (cdr sexp)))))))
      ((and (cddr sexp) (equal (car sexp) 'deftest))
       ;; (deftest ...)
-      (let ((i 2))
+      (let ((i 2)) ;; 2 because we skip deftest and "name"
         (dolist (sexp (cddr sexp))
           (condition-case err
               (eval sexp)
             (error (push (cons (elk-test-find-sub-expression beg (point) i)
-                               (error-message-string err)) errors)))))
+                               (error-message-string err)) errors)))
+          (incf i)))
       (if errors
           (list* (cons beg (point)) ;; region
                  (cadr sexp)        ;; test name
