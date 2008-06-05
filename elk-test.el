@@ -25,6 +25,9 @@
 ;;
 ;;; Commentary:
 ;;
+;; elk-test requires fringe-helper.el, which is available at:
+;; http://nschum.de/src/emacs/fringe-helper/
+;;
 ;; Use `deftest' to define a test and `elk-test-group' to define test groups.
 ;; `elk-test-run' can run tests by name, and `elk-test-run-buffer' runs them by
 ;; buffer.
