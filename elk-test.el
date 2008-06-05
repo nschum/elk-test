@@ -508,6 +508,8 @@ If the state is set to 'success, a hook will be installed to switch to
          'elk-test-eldoc-function)
     (eldoc-mode 1)))
 
+;;;###autoload (add-to-list 'auto-mode-alist '("\\.elk\\'" . elk-test-mode))
+
 (defsubst elk-test-shorten-string (str)
   "Shorten STR to 40 characters."
   (if (>= (length str) 40)
