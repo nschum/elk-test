@@ -75,6 +75,8 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Fixed link jumping in terminal mode.  (Thanks to Johan Bockgård.)
+;;
 ;; 2008-04-26 (0.2)
 ;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
 ;;    Replaced `elk-test-error' with regular `error'.
@@ -307,7 +309,7 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
     (let ((inhibit-read-only t)
           (keymap (make-sparse-keymap)))
       (define-key keymap [mouse-2] 'elk-test-click)
-      (define-key keymap (kbd "<return>") 'elk-test-follow-link)
+      (define-key keymap "\C-m" 'elk-test-follow-link)
       (dolist (err errors)
         (insert "<")
         (elk-test-insert-with-properties
