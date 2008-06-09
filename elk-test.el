@@ -3,7 +3,7 @@
 ;; Copyright (C) 2006,2008 Nikolaj Schumacher
 ;;
 ;; Author: Nikolaj Schumacher <bugs * nschum de>
-;; Version: 0.2
+;; Version: 0.2.1
 ;; Keywords: lisp
 ;; URL: http://nschum.de/src/emacs/guess-style/
 ;; Compatibility: GNU Emacs 22.x
@@ -75,7 +75,8 @@
 ;;
 ;;; Change Log:
 ;;
-;;    Fixed link jumping in terminal mode.  (Thanks to Johan Bockgård.)
+;; 2008-06-09 (0.2.1)
+;;    Fixed link jumping in terminal mode.  (Thanks to Johan Bockgård).
 ;;
 ;; 2008-04-26 (0.2)
 ;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
