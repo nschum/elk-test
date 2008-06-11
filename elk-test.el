@@ -198,22 +198,6 @@ case a message describing the errors or success is displayed and returned."
                      "Test run was successful."))
         error-list))))
 
-(defun elk-test-prepare-error-buffer ()
-  "Create and prepare a buffer for displaying errors."
-  (with-current-buffer (get-buffer-create "*elk-test*")
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (setq buffer-read-only t)
-      (current-buffer))))
-
-(defun elk-test-show-error-buffer ()
-  "Pop up the buffer with errors created by `elk-test-run-buffer'."
-  (interactive)
-  (let ((buffer (get-buffer "*elk-test*")))
-    (if buffer
-        (switch-to-buffer buffer)
-      (message "No error buffer found"))))
-
 (defun elk-test-find-sub-expression (beg end number)
   (save-excursion
     (goto-char beg)
@@ -300,63 +284,6 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
                             nil t (buffer-name elk-test-last-buffer)))))
   (elk-test-run-buffer buffer t))
 
-(defsubst elk-test-insert-with-properties (text properties)
-  (let ((beg (point)))
-    (insert text)
-    (set-text-properties beg (point) properties)))
-
-(defun elk-test-print-errors (original-buffer errors &optional error-buffer)
-  (with-current-buffer (or error-buffer (elk-test-prepare-error-buffer))
-    (let ((inhibit-read-only t)
-          (keymap (make-sparse-keymap)))
-      (define-key keymap [mouse-2] 'elk-test-click)
-      (define-key keymap "\C-m" 'elk-test-follow-link)
-      (dolist (err errors)
-        (insert "<")
-        (elk-test-insert-with-properties
-         (cadr err) (when (car err)
-                      `(mouse-face highlight
-                      help-echo "mouse-1: Jump to this test"
-                      face '(:underline t)
-                      elk-test-buffer ,original-buffer
-                      elk-test-region ,(car err)
-                      keymap ,keymap
-                      follow-link t)))
-        (insert "> failed:\n")
-        (dolist (failure (cddr err))
-          (insert "* ")
-          (elk-test-insert-with-properties
-           (cdr failure) (when (car failure)
-                           `(mouse-face highlight
-                            help-echo "mouse-1: Jump to this error"
-                            face '(:underline t)
-                            elk-test-buffer ,original-buffer
-                            elk-test-region ,(car failure)
-                            keymap ,keymap
-                            follow-link t)))
-          (insert "\n\n")))
-      (setq buffer-read-only t))
-    (and errors
-         elk-test-pop-to-error-buffer
-         (pop-to-buffer (current-buffer)))))
-
-(defun elk-test-jump (buffer region)
-  (push-mark)
-  (switch-to-buffer buffer)
-  (goto-char (car region)))
-
-(defun elk-test-follow-link (pos)
-  "Follow the link at POS in an error buffer."
-  (interactive "d")
-  (elk-test-jump (get-text-property pos 'elk-test-buffer)
-                 (get-text-property pos 'elk-test-region)))
-
-(defun elk-test-click (event)
-  "Follow the link selected in an error buffer."
-  (interactive "e")
-  (with-current-buffer (window-buffer (posn-window (event-end event)))
-    (elk-test-follow-link (posn-point (event-end event)))))
-
 (defun elk-test-run-internal (test)
   (let (error-list)
     (dolist (sexp test)
@@ -364,6 +291,8 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
           (eval sexp)
         (error (push (error-message-string err) error-list))))
     error-list))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro assert-equal (expected actual)
   "Assert that ACTUAL equals EXPECTED, or signal a warning."
@@ -441,6 +370,8 @@ message.  nil accepts any error.  Use nil with caution, as errors like
             (unless (string-match ,error-message-regexp actual-error)
               (error "assert-error for <%s> failed: expected <%s>, raised <%s>"
                      '(progn . ,body) ,error-message-regexp actual-error))))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defsubst elk-test-set-test (name test-data)
   (let ((match (assoc name elk-test-alist)))
@@ -618,6 +549,81 @@ This function is suitable for use as `eldoc-documentation-function'."
         (when (interactive-p)
           (message "%s" prop))
         (return prop)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun elk-test-prepare-error-buffer ()
+  "Create and prepare a buffer for displaying errors."
+  (with-current-buffer (get-buffer-create "*elk-test*")
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (setq buffer-read-only t)
+      (current-buffer))))
+
+(defsubst elk-test-insert-with-properties (text properties)
+  (let ((beg (point)))
+    (insert text)
+    (set-text-properties beg (point) properties)))
+
+(defun elk-test-print-errors (original-buffer errors &optional error-buffer)
+  (with-current-buffer (or error-buffer (elk-test-prepare-error-buffer))
+    (let ((inhibit-read-only t)
+          (keymap (make-sparse-keymap)))
+      (define-key keymap [mouse-2] 'elk-test-click)
+      (define-key keymap "\C-m" 'elk-test-follow-link)
+      (dolist (err errors)
+        (insert "<")
+        (elk-test-insert-with-properties
+         (cadr err) (when (car err)
+                      `(mouse-face highlight
+                      help-echo "mouse-1: Jump to this test"
+                      face '(:underline t)
+                      elk-test-buffer ,original-buffer
+                      elk-test-region ,(car err)
+                      keymap ,keymap
+                      follow-link t)))
+        (insert "> failed:\n")
+        (dolist (failure (cddr err))
+          (insert "* ")
+          (elk-test-insert-with-properties
+           (cdr failure) (when (car failure)
+                           `(mouse-face highlight
+                            help-echo "mouse-1: Jump to this error"
+                            face '(:underline t)
+                            elk-test-buffer ,original-buffer
+                            elk-test-region ,(car failure)
+                            keymap ,keymap
+                            follow-link t)))
+          (insert "\n\n")))
+      (setq buffer-read-only t))
+    (and errors
+         elk-test-pop-to-error-buffer
+         (pop-to-buffer (current-buffer)))))
+
+(defun elk-test-jump (buffer region)
+  (push-mark)
+  (switch-to-buffer buffer)
+  (goto-char (car region)))
+
+(defun elk-test-follow-link (pos)
+  "Follow the link at POS in an error buffer."
+  (interactive "d")
+  (elk-test-jump (get-text-property pos 'elk-test-buffer)
+                 (get-text-property pos 'elk-test-region)))
+
+(defun elk-test-click (event)
+  "Follow the link selected in an error buffer."
+  (interactive "e")
+  (with-current-buffer (window-buffer (posn-window (event-end event)))
+    (elk-test-follow-link (posn-point (event-end event)))))
+
+(defun elk-test-show-error-buffer ()
+  "Pop up the buffer with errors created by `elk-test-run-buffer'."
+  (interactive)
+  (let ((buffer (get-buffer "*elk-test*")))
+    (if buffer
+        (switch-to-buffer buffer)
+      (message "No error buffer found"))))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
