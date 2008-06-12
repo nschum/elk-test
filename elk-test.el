@@ -55,6 +55,9 @@
 ;; in a different buffer with `elk-test-run-a-buffer', or individual tests and
 ;; test groups with `elk-test-run'.
 ;;
+;; To jump to failures, use `next-error', or click on the links in the error
+;; buffer.
+;;
 ;; To bind some keys, add the following to your .emacs:
 ;;
 ;; (define-key elk-test-mode-map (kbd "M-<f7>") 'elk-test-run-buffer)
@@ -74,6 +77,8 @@
 ;;
 ;;
 ;;; Change Log:
+;;
+;;    Made error buffer `next-error' capable.
 ;;
 ;; 2008-06-09 (0.2.1)
 ;;    Fixed link jumping in terminal mode.  (Thanks to Johan Bockgård).
@@ -552,10 +557,15 @@ This function is suitable for use as `eldoc-documentation-function'."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defvar elk-test-error-pos nil)
+(make-variable-buffer-local 'elk-test-error-pos)
+
 (defun elk-test-prepare-error-buffer ()
   "Create and prepare a buffer for displaying errors."
   (with-current-buffer (get-buffer-create "*elk-test*")
     (let ((inhibit-read-only t))
+      (setq next-error-function 'elk-test-next-error-function)
+      (setq elk-test-error-pos nil)
       (erase-buffer)
       (setq buffer-read-only t)
       (current-buffer))))
@@ -592,6 +602,7 @@ This function is suitable for use as `eldoc-documentation-function'."
                             face '(:underline t)
                             elk-test-buffer ,original-buffer
                             elk-test-region ,(car failure)
+                            elk-test-error ,(car failure)
                             keymap ,keymap
                             follow-link t)))
           (insert "\n\n")))
@@ -624,6 +635,41 @@ This function is suitable for use as `eldoc-documentation-function'."
     (if buffer
         (switch-to-buffer buffer)
       (message "No error buffer found"))))
+
+(add-to-list 'debug-ignored-errors "^Moved past last failure$")
+
+(defun elk-test-next-error (arg)
+  (let ((pos elk-test-error-pos))
+    (setq arg (* 2 arg))
+    (unless (get-text-property pos 'elk-test-error)
+      (setq arg (1- arg)))
+    (assert (> arg 0))
+    (dotimes (i arg)
+      (setq pos (next-single-property-change pos 'elk-test-error))
+      (unless pos
+        (error "Moved past last failure")))
+    pos))
+
+(add-to-list 'debug-ignored-errors "^Moved back before first failure$")
+
+(defun elk-test-previous-error (arg)
+  (let ((pos elk-test-error-pos))
+    (assert (> arg 0))
+    (dotimes (i (* 2 arg))
+      (setq pos (previous-single-property-change pos 'elk-test-error))
+      (unless pos
+        (error "Moved back before first failure")))
+    pos))
+
+(defun elk-test-next-error-function (arg reset)
+  (when (or reset (null elk-test-error-pos))
+    (setq elk-test-error-pos (point-min)))
+  (setq elk-test-error-pos
+        (if (<= arg 0)
+            (elk-test-previous-error (- arg))
+          (elk-test-next-error arg)))
+  (elk-test-follow-link elk-test-error-pos))
+
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
