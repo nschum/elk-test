@@ -87,7 +87,7 @@
 ;; 2008-04-26 (0.2)
 ;;    Renamed `run-elk-test' and `run-elk-tests-buffer'.
 ;;    Replaced `elk-test-error' with regular `error'.
-;;    Added major made.
+;;    Added major mode.
 ;;    `assert-error' now takes a regular expression as argument.
 ;;    Removed defsuite functionality (Use .elk files instead).
 ;;    `elk-test-run-buffer' no longer evaluates the entire buffer.
