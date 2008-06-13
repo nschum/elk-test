@@ -448,7 +448,7 @@ If the state is set to 'success, a hook will be installed to switch to
 ;;;###autoload
 (define-derived-mode elk-test-mode emacs-lisp-mode
   "elk-test"
-  "Minor mode used for elk tests."
+  "Major mode for editing elk-tests."
   (elk-test-enable-font-lock)
   (when elk-test-mode-use-eldoc
     (set (make-local-variable 'eldoc-documentation-function)
