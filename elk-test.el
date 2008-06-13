@@ -78,6 +78,7 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Switched to using button package for links.
 ;;    Added `elk-test-result-mode'.
 ;;    Made error buffer `next-error' capable.
 ;;
@@ -106,6 +107,7 @@
 (require 'newcomment)
 (require 'eldoc)
 (require 'compile)
+(require 'button)
 
 (defgroup elk-test nil
   "Emacs Lisp testing framework"
@@ -584,41 +586,44 @@ This function is suitable for use as `eldoc-documentation-function'."
       (erase-buffer)
       (current-buffer))))
 
-(defsubst elk-test-insert-with-properties (text properties)
+(defsubst elk-test-insert-with-button (text type buffer region)
   (let ((beg (point)))
     (insert text)
-    (set-text-properties beg (point) properties)))
+    (when region
+      (make-text-button beg (point) 'type type
+                        'elk-test-buffer buffer
+                        'elk-test-region region))))
+
+(defun elk-test-button-action (button)
+  (elk-test-jump (button-get button 'elk-test-buffer)
+                 (button-get button 'elk-test-region)))
+
+(define-button-type 'elk-test-link
+  'follow-link t
+  'action #'elk-test-button-action)
+
+(define-button-type 'elk-test-test-link
+  :supertype 'elk-test-link
+  'help-echo "mouse-2, RET: Jump to this test")
+
+(define-button-type 'elk-test-failure-link
+  :supertype 'elk-test-link
+  'elk-test-error t
+  'help-echo "mouse-2, RET: Jump to this failure")
 
 (defun elk-test-print-errors (original-buffer errors &optional error-buffer)
   (with-current-buffer (or error-buffer (elk-test-prepare-error-buffer))
-    (let ((inhibit-read-only t)
-          (keymap (make-sparse-keymap)))
-      (define-key keymap [mouse-2] 'elk-test-click)
-      (define-key keymap "\C-m" 'elk-test-follow-link)
+    (let ((inhibit-read-only t))
       (dolist (err errors)
         (insert "<")
-        (elk-test-insert-with-properties
-         (cadr err) (when (car err)
-                      `(mouse-face highlight
-                      help-echo "mouse-1: Jump to this test"
-                      face '(:underline t)
-                      elk-test-buffer ,original-buffer
-                      elk-test-region ,(car err)
-                      keymap ,keymap
-                      follow-link t)))
+        (elk-test-insert-with-button (cadr err) 'elk-test-test-link
+                                     original-buffer (car err))
         (insert "> failed:\n")
         (dolist (failure (cddr err))
           (insert "* ")
-          (elk-test-insert-with-properties
-           (cdr failure) (when (car failure)
-                           `(mouse-face highlight
-                            help-echo "mouse-1: Jump to this error"
-                            face '(:underline t)
-                            elk-test-buffer ,original-buffer
-                            elk-test-region ,(car failure)
-                            elk-test-error ,(car failure)
-                            keymap ,keymap
-                            follow-link t)))
+          (elk-test-insert-with-button (cdr failure)
+                                       'elk-test-failure-link
+                                       original-buffer (car failure))
           (insert "\n\n")))
       (setq buffer-read-only t))
     (and errors
@@ -629,18 +634,6 @@ This function is suitable for use as `eldoc-documentation-function'."
   (push-mark)
   (switch-to-buffer buffer)
   (goto-char (car region)))
-
-(defun elk-test-follow-link (pos)
-  "Follow the link at POS in an error buffer."
-  (interactive "d")
-  (elk-test-jump (get-text-property pos 'elk-test-buffer)
-                 (get-text-property pos 'elk-test-region)))
-
-(defun elk-test-click (event)
-  "Follow the link selected in an error buffer."
-  (interactive "e")
-  (with-current-buffer (window-buffer (posn-window (event-end event)))
-    (elk-test-follow-link (posn-point (event-end event)))))
 
 (defun elk-test-show-error-buffer ()
   "Pop up the buffer with errors created by `elk-test-run-buffer'."
