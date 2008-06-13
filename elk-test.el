@@ -78,6 +78,7 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Added `elk-test-result-mode'.
 ;;    Made error buffer `next-error' capable.
 ;;
 ;; 2008-06-09 (0.2.1)
@@ -175,6 +176,12 @@
   :group 'elk-test
   :type '(choice (const :tag "Off" nil)
                  (const :tag "On" t)))
+
+(defvar elk-test-result-mode-map
+  (let ((keymap (make-sparse-keymap)))
+    (define-key keymap "q" 'bury-buffer)
+    keymap)
+  "Keymap used for `elk-test-result-mode'.")
 
 (defvar elk-test-alist nil
   "An alist of all defined elk-test tests/groups and their bodies.")
@@ -458,7 +465,8 @@ If the state is set to 'success, a hook will be installed to switch to
 
 (defun elk-test-update-menu (errors)
   "Update the mode menu for `elk-test-mode'."
-  (easy-menu-define elk-test-menu elk-test-mode-map
+  (easy-menu-define elk-test-menu (list elk-test-mode-map
+                                        elk-test-result-mode-map)
     "elk-test commands"
     `("elk-test"
       ["Run buffer tests" elk-test-run-buffer]
@@ -561,14 +569,19 @@ This function is suitable for use as `eldoc-documentation-function'."
 (defvar elk-test-error-pos nil)
 (make-variable-buffer-local 'elk-test-error-pos)
 
+(define-derived-mode elk-test-result-mode fundamental-mode
+  "elk-test result"
+  "Major mode for viewing elk-test results."
+  (setq buffer-read-only t)
+  (setq elk-test-error-pos nil)
+  (setq next-error-function 'elk-test-next-error-function))
+
 (defun elk-test-prepare-error-buffer ()
   "Create and prepare a buffer for displaying errors."
   (with-current-buffer (get-buffer-create "*elk-test*")
+    (elk-test-result-mode)
     (let ((inhibit-read-only t))
-      (setq next-error-function 'elk-test-next-error-function)
-      (setq elk-test-error-pos nil)
       (erase-buffer)
-      (setq buffer-read-only t)
       (current-buffer))))
 
 (defsubst elk-test-insert-with-properties (text properties)

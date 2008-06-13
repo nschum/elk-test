@@ -3,7 +3,6 @@
 (deftest "deftest"
   (let ((elk-test-alist nil)
         (elk-test-run-on-define nil))
-
     (deftest "test1" (assert-equal t t))
     (assert-equal '((assert-equal t t)) (cdr (assoc "test1" elk-test-alist)))
     (assert-nil (cdr (assoc "test2" elk-test-alist)))
