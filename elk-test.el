@@ -104,6 +104,7 @@
 (require 'fringe-helper)
 (require 'newcomment)
 (require 'eldoc)
+(require 'compile)
 
 (defgroup elk-test nil
   "Emacs Lisp testing framework"
@@ -668,8 +669,16 @@ This function is suitable for use as `eldoc-documentation-function'."
         (if (<= arg 0)
             (elk-test-previous-error (- arg))
           (elk-test-next-error arg)))
-  (elk-test-follow-link elk-test-error-pos))
-
+  (let ((region (get-text-property elk-test-error-pos 'elk-test-region))
+        (buffer (get-text-property elk-test-error-pos 'elk-test-buffer))
+        (msg (copy-marker elk-test-error-pos))
+        (mk (make-marker))
+        (end-mk (make-marker)))
+    (set-marker mk (car region) buffer)
+    (set-marker end-mk (cdr region) buffer)
+    (compilation-goto-locus msg mk end-mk)
+    (dolist (mk (list mk end-mk msg))
+      (set-marker mk nil))))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
