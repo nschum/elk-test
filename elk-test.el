@@ -455,7 +455,8 @@ If the state is set to 'success, a hook will be installed to switch to
   (when elk-test-mode-use-eldoc
     (set (make-local-variable 'eldoc-documentation-function)
          'elk-test-eldoc-function)
-    (eldoc-mode 1)))
+    (eldoc-mode 1))
+  (elk-test-update-menu nil))
 
 ;;;###autoload (add-to-list 'auto-mode-alist '("\\.elk\\'" . elk-test-mode))
 
