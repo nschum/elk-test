@@ -56,7 +56,12 @@
 ;; test groups with `elk-test-run'.
 ;;
 ;; To jump to failures, use `next-error', or click on the links in the error
-;; buffer.
+;; buffer.  The optional `elk-test-result-follow-mode' will automatically
+;; display the corresponding failure location.  To enable it by default, use the
+;; following configuration:
+;;
+;; (add-hook 'elk-test-result-mode-hook 'elk-test-result-follow-mode)
+;;
 ;;
 ;; To bind some keys, add the following to your .emacs:
 ;;
@@ -78,6 +83,7 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Added `elk-test-result-follow-mode'.
 ;;    Switched to using button package for links.
 ;;    Added `elk-test-result-mode'.
 ;;    Made error buffer `next-error' capable.
@@ -687,6 +693,33 @@ This function is suitable for use as `eldoc-documentation-function'."
   (elk-test-jump (get-text-property elk-test-error-pos 'elk-test-buffer)
                  (get-text-property elk-test-error-pos 'elk-test-region)
                  elk-test-error-pos))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar elk-test-result-follow-last-button nil)
+(make-variable-buffer-local 'elk-test-follow-last-button)
+
+(define-minor-mode elk-test-result-follow-mode
+  "Minor mode for navigating elk-test results.
+When turned on, cursor motion in the result buffer causes automatic
+display of the corresponding failure location.
+
+Customize `next-error-highlight' to modify the highlighting."
+  nil " Fol" nil
+  :group 'elk-test
+  (if elk-test-result-follow-mode
+      (add-hook 'post-command-hook 'elk-test-result-follow-hook nil t)
+    (remove-hook 'post-command-hook 'elk-test-result-follow-hook t)))
+
+(defun elk-test-result-follow-hook ()
+  (let ((button (button-at (point))))
+    (unless (equal button elk-test-result-follow-last-button)
+      (setq elk-test-result-follow-last-button button)
+      (when button
+        (let ((next-error-highlight next-error-highlight-no-select))
+          (save-selected-window
+            (save-excursion
+              (elk-test-button-action button))))))))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
