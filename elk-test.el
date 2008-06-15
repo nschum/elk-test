@@ -482,7 +482,8 @@ If the state is set to 'success, a hook will be installed to switch to
                   (vector (buffer-name buf)
                           `(lambda ()
                              (interactive)
-                             (switch-to-buffer ,buf))))
+                             (switch-to-buffer ,buf))
+                          :visible `(buffer-live-p ,buf)))
                 (elk-test-buffer-list))
       "-" .
       ,(mapcan (lambda (buffer-errors)
