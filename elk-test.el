@@ -3,7 +3,7 @@
 ;; Copyright (C) 2006,2008 Nikolaj Schumacher
 ;;
 ;; Author: Nikolaj Schumacher <bugs * nschum de>
-;; Version: 0.2.1
+;; Version: 0.3
 ;; Keywords: lisp
 ;; URL: http://nschum.de/src/emacs/guess-style/
 ;; Compatibility: GNU Emacs 22.x
@@ -83,6 +83,7 @@
 ;;
 ;;; Change Log:
 ;;
+;; 2008-06-15 (0.3)
 ;;    Added `elk-test-result-follow-mode'.
 ;;    Switched to using button package for links.
 ;;    Added `elk-test-result-mode'.
