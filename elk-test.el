@@ -493,8 +493,9 @@ If the state is set to 'success, a hook will be installed to switch to
                                     (elk-test-shorten-string (cdar (cddr err))))
                             `(lambda ()
                                (interactive)
-                               (elk-test-jump ,(car buffer-errors)
-                                              ',(caar (cddr err))))))
+                               (push-mark)
+                               (switch-to-buffer ,(car buffer-errors))
+                               (goto-char ,(caar (cddr err))))))
                          (cdr buffer-errors)))
                errors)))
   (easy-menu-add elk-test-menu))
@@ -598,7 +599,8 @@ This function is suitable for use as `eldoc-documentation-function'."
 
 (defun elk-test-button-action (button)
   (elk-test-jump (button-get button 'elk-test-buffer)
-                 (button-get button 'elk-test-region)))
+                 (button-get button 'elk-test-region)
+                 (button-start button)))
 
 (define-button-type 'elk-test-link
   'follow-link t
@@ -632,10 +634,15 @@ This function is suitable for use as `eldoc-documentation-function'."
          elk-test-pop-to-error-buffer
          (pop-to-buffer (current-buffer)))))
 
-(defun elk-test-jump (buffer region)
-  (push-mark)
-  (switch-to-buffer buffer)
-  (goto-char (car region)))
+(defun elk-test-jump (buffer region from)
+  (let ((msg (copy-marker from))
+        (mk (make-marker))
+        (end-mk (make-marker)))
+    (set-marker mk (car region) buffer)
+    (set-marker end-mk (cdr region) buffer)
+    (compilation-goto-locus msg mk end-mk)
+    (dolist (mk (list mk end-mk msg))
+      (set-marker mk nil))))
 
 (defun elk-test-show-error-buffer ()
   "Pop up the buffer with errors created by `elk-test-run-buffer'."
@@ -677,16 +684,9 @@ This function is suitable for use as `eldoc-documentation-function'."
         (if (<= arg 0)
             (elk-test-previous-error (- arg))
           (elk-test-next-error arg)))
-  (let ((region (get-text-property elk-test-error-pos 'elk-test-region))
-        (buffer (get-text-property elk-test-error-pos 'elk-test-buffer))
-        (msg (copy-marker elk-test-error-pos))
-        (mk (make-marker))
-        (end-mk (make-marker)))
-    (set-marker mk (car region) buffer)
-    (set-marker end-mk (cdr region) buffer)
-    (compilation-goto-locus msg mk end-mk)
-    (dolist (mk (list mk end-mk msg))
-      (set-marker mk nil))))
+  (elk-test-jump (get-text-property elk-test-error-pos 'elk-test-buffer)
+                 (get-text-property elk-test-error-pos 'elk-test-region)
+                 elk-test-error-pos))
 
 (provide 'elk-test)
 ;;; elk-test.el ends here
