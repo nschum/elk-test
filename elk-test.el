@@ -7,6 +7,7 @@
 ;; Keywords: lisp
 ;; URL: http://nschum.de/src/emacs/guess-style/
 ;; Compatibility: GNU Emacs 22.x
+;; Package-Requires: ((fringe-helper "0.1.1"))
 ;;
 ;; This file is NOT part of GNU Emacs.
 ;;
