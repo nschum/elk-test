@@ -84,6 +84,8 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Added `elk-test-result-context-lines'.
+;;
 ;; 2008-06-15 (0.3)
 ;;    Added `elk-test-result-follow-mode'.
 ;;    Switched to using button package for links.
@@ -186,6 +188,12 @@
   :group 'elk-test
   :type '(choice (const :tag "Off" nil)
                  (const :tag "On" t)))
+
+(defcustom elk-test-result-context-lines compilation-context-lines
+  "Display this many lines of leading context before the current message.
+See `compilation-context-lines'."
+  :group 'test-case
+  :type '(choice integer (const :tag "No window scrolling" nil)))
 
 (defvar elk-test-result-mode-map
   (let ((keymap (make-sparse-keymap)))
@@ -645,7 +653,8 @@ This function is suitable for use as `eldoc-documentation-function'."
 (defun elk-test-jump (buffer region from)
   (let ((msg (copy-marker from))
         (mk (make-marker))
-        (end-mk (make-marker)))
+        (end-mk (make-marker))
+        (compilation-context-lines elk-test-result-context-lines))
     (set-marker mk (car region) buffer)
     (set-marker end-mk (cdr region) buffer)
     (compilation-goto-locus msg mk end-mk)
