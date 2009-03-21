@@ -26,7 +26,7 @@
 ;;
 ;;; Commentary:
 ;;
-;; elk-test requires fringe-helper.el, which is available at:
+;; For best visualization, install fringe-helper, which is available at:
 ;; http://nschum.de/src/emacs/fringe-helper/
 ;;
 ;; Use `deftest' to define a test and `elk-test-group' to define test groups.
@@ -84,6 +84,7 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Made fringe-helper dependency optional.
 ;;    Removed dependency on CL functions.
 ;;    Fixed deftest highlighting.
 ;;    Added `elk-test-result-context-lines'.
@@ -115,7 +116,7 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
-(require 'fringe-helper)
+(require 'fringe-helper nil t)
 (require 'newcomment)
 (require 'eldoc)
 (require 'compile)
@@ -554,11 +555,17 @@ If the state is set to 'success, a hook will be installed to switch to
 (defvar elk-test-fringe-regions nil)
 (make-variable-buffer-local 'elk-test-fringe-regions)
 
+(defvar elk-test-regions nil)
+(make-variable-buffer-local 'elk-test-regions)
+
 (defun elk-test-unmark-failures ()
   "Remove all highlighting from buffer."
   (interactive)
-  (while elk-test-fringe-regions
-    (fringe-helper-remove (pop elk-test-fringe-regions))))
+  (when (fboundp 'fringe-helper-remove)
+    (mapc 'fringe-helper-remove elk-test-fringe-regions))
+  (mapc 'delete-overlay elk-test-regions)
+  (setq elk-test-fringe-regions nil
+        elk-test-regions nil))
 
 (defun elk-test-mark-failures (failures which-side)
   "Highlight failed tests."
@@ -566,16 +573,16 @@ If the state is set to 'success, a hook will be installed to switch to
   (save-excursion
     (dolist (failure failures)
       (dolist (form (cddr failure))
-        (when (and which-side window-system)
-          (push (fringe-helper-insert-region (caar form) (cdar form)
-                                             'filled-square which-side
-                                             'elk-test-fringe)
-              elk-test-fringe-regions))
+        (and which-side window-system (fboundp 'fringe-helper-insert-region)
+             (push (fringe-helper-insert-region (caar form) (cdar form)
+                                                'filled-square which-side
+                                                'elk-test-fringe)
+                   elk-test-fringe-regions))
         (push (make-overlay (caar form) (cdar form))
-              elk-test-fringe-regions)
-        (overlay-put (car elk-test-fringe-regions)
+              elk-test-regions)
+        (overlay-put (car elk-test-regions)
                      'elk-test-error (cdr form))
-        (overlay-put (car elk-test-fringe-regions)
+        (overlay-put (car elk-test-regions)
                      'face 'elk-test-failed-region)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
