@@ -1,9 +1,9 @@
 ;;; elk-test.el --- Emacs Lisp testing framework
 ;;
-;; Copyright (C) 2006,2008 Nikolaj Schumacher
+;; Copyright (C) 2006-2009 Nikolaj Schumacher
 ;;
 ;; Author: Nikolaj Schumacher <bugs * nschum de>
-;; Version: 0.3
+;; Version: 0.3.2
 ;; Keywords: lisp
 ;; URL: http://nschum.de/src/emacs/guess-style/
 ;; Compatibility: GNU Emacs 22.x, GNU Emacs 23.x
@@ -84,6 +84,7 @@
 ;;
 ;;; Change Log:
 ;;
+;; 2009-03-21 (0.3.2)
 ;;    Made fringe-helper dependency optional.
 ;;    Removed dependency on CL functions.
 ;;    Fixed deftest highlighting.
