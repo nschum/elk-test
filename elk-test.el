@@ -84,6 +84,7 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Fixed deftest highlighting.
 ;;    Added `elk-test-result-context-lines'.
 ;;
 ;; 2008-06-15 (0.3)
@@ -431,7 +432,7 @@ The resulting group can be run by calling `elk-test-run' with parameter NAME."
     name))
 
 (defconst elk-test-font-lock-keywords
-  `(("(\\_<\\(deftest\\)\\_>" 1 'font-lock-deftest)
+  `(("(\\_<\\(deftest\\)\\_>" 1 'elk-test-deftest)
     (,(concat "(\\_<" (regexp-opt '("assert-equal" "assert-eq" "assert-eql"
                                     "assert-nonnil" "assert-t" "assert-nil"
                                     "assert-error" "assert-that") t)
