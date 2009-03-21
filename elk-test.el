@@ -84,6 +84,7 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Removed dependency on CL functions.
 ;;    Fixed deftest highlighting.
 ;;    Added `elk-test-result-context-lines'.
 ;;
@@ -209,6 +210,9 @@ See `compilation-context-lines'."
   "Remove all tests from memory."
   (setq elk-test-alist nil))
 
+(defsubst elk-test-mapcan (func sequence)
+  (apply 'nconc (mapcar func sequence)))
+
 (defun elk-test-run (name &optional string-result)
   "Run the test case defined as NAME.
 The result is a list of errors strings, unless STRING-RESULT is set, in which
@@ -221,7 +225,7 @@ case a message describing the errors or success is displayed and returned."
         (error "Undefined test <%s>" name)
       (setq error-list (if (equal (car test-or-group) 'group)
                            ;; is test group
-                           (mapcan 'elk-test-run (cdr test-or-group))
+                           (elk-test-mapcan 'elk-test-run (cdr test-or-group))
                          ;; is simple test
                          (elk-test-run-internal test-or-group)))
       (if (or string-result (interactive-p))
@@ -503,25 +507,26 @@ If the state is set to 'success, a hook will be installed to switch to
                           :visible `(buffer-live-p ,buf)))
                 (elk-test-buffer-list))
       "-" .
-      ,(mapcan (lambda (buffer-errors)
-                 (mapcar (lambda (err)
-                           (vector
-                            (concat (cadr err) " - "
-                                    (elk-test-shorten-string (cdar (cddr err))))
-                            `(lambda ()
-                               (interactive)
-                               (push-mark)
-                               (switch-to-buffer ,(car buffer-errors))
-                               (goto-char ,(caar (cddr err))))))
-                         (cdr buffer-errors)))
-               errors)))
+      ,(elk-test-mapcan
+        (lambda (buffer-errors)
+          (mapcar (lambda (err)
+                    (vector
+                     (concat (cadr err) " - "
+                             (elk-test-shorten-string (cdar (cddr err))))
+                     `(lambda ()
+                        (interactive)
+                        (push-mark)
+                        (switch-to-buffer ,(car buffer-errors))
+                        (goto-char ,(caar (cddr err))))))
+                  (cdr buffer-errors)))
+        errors)))
   (easy-menu-add elk-test-menu))
 
 (defun elk-test-buffer-list ()
   "List all buffers in `elk-test-mode'."
-  (mapcan (lambda (b) (when (with-current-buffer b
-                              (eq major-mode 'elk-test-mode))
-                        (cons b nil)))
+  (elk-test-mapcan (lambda (b) (when (with-current-buffer b
+                                       (eq major-mode 'elk-test-mode))
+                                 (cons b nil)))
           (buffer-list)))
 
 (defun elk-test-run-all-buffers (&optional show-results)
