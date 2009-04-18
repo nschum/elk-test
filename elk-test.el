@@ -84,6 +84,8 @@
 ;;
 ;;; Change Log:
 ;;
+;;    Added `assert-not-.*' and `assert-.*<' convenience macros.
+;;
 ;; 2009-03-21 (0.3.2)
 ;;    Made fringe-helper dependency optional.
 ;;    Removed dependency on CL functions.
@@ -338,17 +340,35 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
     (error "assert-equal for <%s> failed: expected <%s>, was <%s>"
                     ',actual ,expected ,actual)))
 
+(defmacro assert-not-equal (expected actual)
+  "Assert that ACTUAL not equals EXPECTED, or signal a warning."
+  `(when (equal ,expected ,actual)
+     (error "assert-not-equal for <%s> failed: was <%s>"
+            ',actual ,expected)))
+
 (defmacro assert-eq (expected actual)
   "Assert that ACTUAL equals EXPECTED, or signal a warning."
   `(unless (eq ,expected ,actual)
     (error "assert-eq for <%s> failed: expected <%s>, was <%s>"
                     ',actual ,expected ,actual)))
 
+(defmacro assert-not-eq (expected actual)
+  "Assert that ACTUAL not equals EXPECTED, or signal a warning."
+  `(when (eq ,expected ,actual)
+     (error "assert-not-eq for <%s> failed: was <%s>"
+            ',actual ,expected)))
+
 (defmacro assert-eql (expected actual)
   "Assert that ACTUAL equals EXPECTED, or signal a warning."
   `(unless (eql ,expected ,actual)
     (error "assert-eql for <%s> failed: expected <%s>, was <%s>"
                     ',actual ,expected ,actual)))
+
+(defmacro assert-not-eql (expected actual)
+  "Assert that ACTUAL not equals EXPECTED, or signal a warning."
+  `(when (eql ,expected ,actual)
+     (error "assert-not-eql for <%s> failed: was <%s>"
+            ',actual ,expected)))
 
 (defmacro assert-nonnil (value)
   "Assert that VALUE is not nil, or signal a warning."
@@ -367,6 +387,18 @@ Unless SHOW-RESULTS is nil, a buffer is created that lists all errors."
   `(when ,value
      (error "assert-nil for <%s> failed: was <%s>"
                      ',value ,value)))
+
+(defmacro assert-string< (left right)
+  "Assert that LEFT is smaller than RIGHT, or signal a warning."
+  `(unless (string< ,left ,right)
+     (error "assert-string< for <%s> < <%s> failed: <%s> /< <%s>"
+            ',left ',right ,left ,right)))
+
+(defmacro assert-< (left right)
+  "Assert that LEFT is smaller than RIGHT, or signal a warning."
+  `(unless (< ,left ,right)
+     (error "assert-< for <%s> < <%s> failed: <%s> /< <%s>"
+            ',left ',right ,left ,right)))
 
 (defmacro assert-that (func form &optional assertion-name error-func)
   "Assert that FUNC returns non-nil on evaluated result of FORM.
